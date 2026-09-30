@@ -1,0 +1,27 @@
+{
+  "name": "com.madeyellow.waves",
+  "version": "0.1.0",
+  "displayName": "WAVES",
+  "description": "World Audio & Visual Effects System. A visual timeline editor for Unity 6 to mark, bake, and sync footstep clips.",
+  "unity": "6000.3",
+  "documentationUrl": "https://github.com/madeyellow/footmark",
+  "changelogUrl": "https://github.com/madeyellow/footmark/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/madeyellow/footmark/blob/main/LICENSE",
+  "keywords": [
+    "animation",
+    "audio",
+    "vfx",
+    "footsteps",
+    "timeline"
+  ],
+  "author": {
+    "name": "MadeYellow",
+    "url": "https://github.com/madeyellow"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.madeyellow.event-bus": "1.0.0",
+    "com.unity.visualeffectgraph": "17.3.0"
+  },
+  "samples": []
+}

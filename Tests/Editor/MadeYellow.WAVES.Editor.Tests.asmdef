@@ -1,0 +1,26 @@
+{
+  "name": "MadeYellow.WAVES.Editor.Tests",
+  "rootNamespace": "MadeYellow.WAVES.Tests.Editor",
+  "references": [
+    "MadeYellow.WAVES",
+    "MadeYellow.WAVES.Editor",
+    "Unity.VisualEffectGraph.Runtime",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

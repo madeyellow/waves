@@ -1,0 +1,17 @@
+{
+  "name": "MadeYellow.WAVES",
+  "rootNamespace": "MadeYellow.WAVES",
+  "references": [
+    "MadeYellow.EventBus",
+    "Unity.VisualEffectGraph.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
