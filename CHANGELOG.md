@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2] - 2026-10-04
+
+### Changed
+
+- The Footstep Editor Bake button stays a normal button when there is nothing to bake, and turns green when the clip has unbaked changes.
+
 ## [0.1.1] - 2026-10-04
 
 ### Changed

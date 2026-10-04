@@ -778,12 +778,17 @@ namespace MadeYellow.WAVES.Editor
         void UpdateChrome()
         {
             bool canBake = _session != null
-                && _session.hasUnbakedChanges
                 && _clip != null
                 && CurrentImporter() != null
                 && !string.IsNullOrEmpty(_clipName);
-            _bakeButton?.SetEnabled(canBake);
-            ApplyTitle(canBake);
+            bool hasUnbakedChanges = canBake && _session.hasUnbakedChanges;
+            if (_bakeButton != null)
+            {
+                _bakeButton.SetEnabled(canBake);
+                _bakeButton.EnableInClassList("footstep-bake-dirty", hasUnbakedChanges);
+            }
+
+            ApplyTitle(hasUnbakedChanges);
             UpdateHistoryButtons();
             UpdateTransport();
             UpdateModelEmptyState();

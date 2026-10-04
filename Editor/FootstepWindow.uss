@@ -233,7 +233,7 @@
     padding-right: 6px;
 }
 
-.footstep-bake:enabled {
+.footstep-bake.footstep-bake-dirty:enabled {
     background-color: #3d9b66;
     color: #ffffff;
     border-width: 1px;
@@ -243,12 +243,15 @@
     border-bottom-color: #2f7a4e;
 }
 
-.footstep-bake:enabled:hover {
+.footstep-bake.footstep-bake-dirty:enabled:hover {
     background-color: #47b074;
 }
 
 .footstep-bake .footstep-tool-icon {
     margin-right: 4px;
+}
+
+.footstep-bake.footstep-bake-dirty .footstep-tool-icon {
     -unity-background-image-tint-color: #ffffff;
 }
 
