@@ -9,7 +9,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Abstractions
     {
         /// <summary>Emits <paramref name="particles"/> at <paramref name="position"/> when the camera is inside <paramref name="cullingDistance"/>.</summary>
         void PlayParticles(
-            int emitterId,
+            EntityId emitterId,
             ActorProfile actor,
             Vector3 position,
             Quaternion rotation,
@@ -21,7 +21,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Abstractions
         /// Ignored when the camera is outside <paramref name="cullingDistance"/>.
         /// </summary>
         void PlayGraph(
-            int emitterId,
+            EntityId emitterId,
             ActorProfile actor,
             Vector3 position,
             Quaternion rotation,

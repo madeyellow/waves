@@ -140,7 +140,7 @@ namespace MadeYellow.WAVES.Editor
         bool BeginSection(string id, string title, string iconPath)
         {
             EnsureSectionStyles();
-            string key = "MadeYellow.WAVES.Footsteps.FootstepReader." + id + "." + target.GetInstanceID();
+            string key = "MadeYellow.WAVES.Footsteps.FootstepReader." + id + "." + target.GetEntityId();
             bool expanded = SessionState.GetBool(key, true);
 
             EditorGUILayout.Space(8f);
@@ -265,9 +265,9 @@ namespace MadeYellow.WAVES.Editor
                 return;
 
             Animator animator = agent.GetComponent<Animator>();
-            int controllerId = animator != null && animator.runtimeAnimatorController != null
-                ? animator.runtimeAnimatorController.GetInstanceID()
-                : 0;
+            string controllerId = animator != null && animator.runtimeAnimatorController != null
+                ? animator.runtimeAnimatorController.GetEntityId().ToString()
+                : EntityId.None.ToString();
             string signature = controllerId + "\n" + ParameterSignature(agent.Profile);
             if (signature == _ensuredSignature)
                 return;
@@ -469,7 +469,7 @@ namespace MadeYellow.WAVES.Editor
         {
             EnsureSectionStyles();
             int hash = _trackEventHashes.GetArrayElementAtIndex(index).intValue;
-            string key = "MadeYellow.WAVES.Footsteps.FootstepReader.track." + target.GetInstanceID() + "." + hash;
+            string key = "MadeYellow.WAVES.Footsteps.FootstepReader.track." + target.GetEntityId() + "." + hash;
             bool expanded = SessionState.GetBool(key, true);
 
             EditorGUILayout.Space(6f);

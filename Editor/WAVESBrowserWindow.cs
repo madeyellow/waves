@@ -98,10 +98,10 @@ namespace MadeYellow.WAVES.Editor
 
         readonly struct Pair : IEquatable<Pair>
         {
-            public readonly int Surface;
-            public readonly int Actor;
+            public readonly EntityId Surface;
+            public readonly EntityId Actor;
 
-            public Pair(int surface, int actor)
+            public Pair(EntityId surface, EntityId actor)
             {
                 Surface = surface;
                 Actor = actor;
@@ -121,7 +121,7 @@ namespace MadeYellow.WAVES.Editor
             {
                 unchecked
                 {
-                    return (Surface * 397) ^ Actor;
+                    return (Surface.GetHashCode() * 397) ^ Actor.GetHashCode();
                 }
             }
         }
@@ -629,7 +629,7 @@ namespace MadeYellow.WAVES.Editor
             EditorGUILayout.BeginHorizontal();
             GUILayout.Space(DetailInset);
             EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true));
-            string scope = module.GetInstanceID() + "." + Identity(_selectedSurface) + "." + Identity(_selectedActor);
+            string scope = module.GetEntityId() + "." + Identity(_selectedSurface) + "." + Identity(_selectedActor);
             if (!WAVESModuleDrawers.Draw(module, cell.FindPropertyRelative("_data"), scope))
                 EditorGUILayout.HelpBox("This module has no group editor.", MessageType.Info);
             EditorGUILayout.EndVertical();
@@ -1386,8 +1386,8 @@ namespace MadeYellow.WAVES.Editor
             for (int i = 0; i < cells.arraySize; i++)
             {
                 SerializedProperty element = cells.GetArrayElementAtIndex(i);
-                int surface = Identity(element.FindPropertyRelative("_surface").objectReferenceValue);
-                int actor = Identity(element.FindPropertyRelative("_actor").objectReferenceValue);
+                EntityId surface = Identity(element.FindPropertyRelative("_surface").objectReferenceValue);
+                EntityId actor = Identity(element.FindPropertyRelative("_actor").objectReferenceValue);
                 _groups[new Pair(surface, actor)] = element.FindPropertyRelative("_enabled").boolValue;
             }
         }
@@ -1528,9 +1528,9 @@ namespace MadeYellow.WAVES.Editor
             Repaint();
         }
 
-        static int Identity(UnityEngine.Object asset)
+        static EntityId Identity(UnityEngine.Object asset)
         {
-            return asset != null ? asset.GetInstanceID() : 0;
+            return asset != null ? asset.GetEntityId() : EntityId.None;
         }
 
         static string ModuleTitle(WAVESModuleBase module)

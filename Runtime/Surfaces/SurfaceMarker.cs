@@ -15,7 +15,7 @@ namespace MadeYellow.WAVES.Surfaces
         [Tooltip("Surface of the colliders on this object and its children. A marker wins over a terrain map.")]
         SurfaceTypeDefinition _surface;
 
-        int _ownerId;
+        EntityId _ownerId;
 
         /// <summary>Surface used for these colliders.</summary>
         public SurfaceTypeDefinition Surface => _surface;
@@ -25,13 +25,13 @@ namespace MadeYellow.WAVES.Surfaces
             if (!Application.isPlaying || _surface == null)
                 return;
 
-            _ownerId = GetInstanceID();
+            _ownerId = GetEntityId();
             CollectColliders();
             for (int i = 0; i < ColliderBuffer.Count; i++)
             {
                 Collider collider = ColliderBuffer[i];
                 if (collider != null)
-                    SurfaceRegistry.RegisterMarker(collider.GetInstanceID(), _ownerId, _surface);
+                    SurfaceRegistry.RegisterMarker(collider.GetEntityId(), _ownerId, _surface);
             }
 
             ColliderBuffer.Clear();
@@ -39,7 +39,7 @@ namespace MadeYellow.WAVES.Surfaces
 
         void OnDisable()
         {
-            if (!Application.isPlaying || _ownerId == 0)
+            if (!Application.isPlaying || !_ownerId.IsValid())
                 return;
 
             CollectColliders();
@@ -47,11 +47,11 @@ namespace MadeYellow.WAVES.Surfaces
             {
                 Collider collider = ColliderBuffer[i];
                 if (collider != null)
-                    SurfaceRegistry.UnregisterMarker(collider.GetInstanceID(), _ownerId);
+                    SurfaceRegistry.UnregisterMarker(collider.GetEntityId(), _ownerId);
             }
 
             ColliderBuffer.Clear();
-            _ownerId = 0;
+            _ownerId = EntityId.None;
         }
 
         void CollectColliders()

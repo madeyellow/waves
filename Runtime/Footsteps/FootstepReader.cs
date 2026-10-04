@@ -559,7 +559,7 @@ namespace MadeYellow.WAVES.Footsteps
                 if (existing >= 0)
                 {
                     if (parameters[existing].type != AnimatorControllerParameterType.Float
-                        && WarnedParameterTypes.Add(controller.GetInstanceID() + ":" + curveName))
+                        && WarnedParameterTypes.Add(controller.GetEntityId() + ":" + curveName))
                     {
                         Debug.LogWarning(
                             "Footstep expected a float parameter named '" + curveName

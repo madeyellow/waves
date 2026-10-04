@@ -1458,7 +1458,7 @@ namespace MadeYellow.WAVES.Editor
             if (_profile == null)
                 return builder.ToString();
 
-            builder.Append(_profile.GetInstanceID()).Append('\n');
+            builder.Append(_profile.GetEntityId().ToString()).Append('\n');
             if (_profile.tracks == null)
                 return builder.ToString();
 
@@ -1651,7 +1651,7 @@ namespace MadeYellow.WAVES.Editor
                         continue;
                     }
 
-                    builder.Append(type.GetInstanceID()).Append('\n');
+                    builder.Append(type.GetEntityId().ToString()).Append('\n');
                     builder.Append(type.name).Append('\n');
                     Texture icon = type.icon;
                     if (icon == null)
@@ -1660,7 +1660,7 @@ namespace MadeYellow.WAVES.Editor
                         continue;
                     }
 
-                    builder.Append(icon.GetInstanceID()).Append('\n');
+                    builder.Append(icon.GetEntityId().ToString()).Append('\n');
                     builder.Append(icon.updateCount).Append('\n');
                 }
             }
@@ -1670,20 +1670,12 @@ namespace MadeYellow.WAVES.Editor
 
         static UnityEngine.Object ResolveChangedObject(ChangeAssetObjectPropertiesEventArgs args)
         {
-#if UNITY_6000_4_OR_NEWER
             return EditorUtility.EntityIdToObject(args.entityId);
-#else
-            return EditorUtility.EntityIdToObject(args.instanceId);
-#endif
         }
 
         static UnityEngine.Object ResolveChangedObject(CreateAssetObjectEventArgs args)
         {
-#if UNITY_6000_4_OR_NEWER
             return EditorUtility.EntityIdToObject(args.entityId);
-#else
-            return EditorUtility.EntityIdToObject(args.instanceId);
-#endif
         }
 
         static bool AffectsFootstepTypes(ref ObjectChangeEventStream stream)

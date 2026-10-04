@@ -21,7 +21,7 @@ namespace MadeYellow.WAVES.Tests.Editor
             var plain = GameObject.CreatePrimitive(PrimitiveType.Cube);
             Collider markedCollider = marked.GetComponent<Collider>();
             Collider plainCollider = plain.GetComponent<Collider>();
-            SurfaceRegistry.RegisterMarker(markedCollider.GetInstanceID(), marked.GetInstanceID(), surface);
+            SurfaceRegistry.RegisterMarker(markedCollider.GetEntityId(), marked.GetEntityId(), surface);
 
             bool foundMarked = SurfaceRegistry.TryResolve(markedCollider, marked.transform.position, out SurfaceTypeDefinition markedType);
             bool foundPlain = SurfaceRegistry.TryResolve(plainCollider, plain.transform.position, out SurfaceTypeDefinition plainType);
@@ -43,7 +43,7 @@ namespace MadeYellow.WAVES.Tests.Editor
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.transform.position = new Vector3(9000f, 0f, 9000f);
             Collider collider = cube.GetComponent<Collider>();
-            SurfaceRegistry.RegisterMarker(collider.GetInstanceID(), cube.GetInstanceID(), surface);
+            SurfaceRegistry.RegisterMarker(collider.GetEntityId(), cube.GetEntityId(), surface);
             Physics.SyncTransforms();
 
             bool hit = Physics.Raycast(cube.transform.position + Vector3.up * 3f, Vector3.down, out RaycastHit ray, 6f);

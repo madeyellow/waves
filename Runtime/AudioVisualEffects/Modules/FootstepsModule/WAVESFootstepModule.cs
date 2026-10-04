@@ -82,10 +82,10 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
     {
         readonly struct CellKey : IEquatable<CellKey>
         {
-            public readonly int SurfaceId;
-            public readonly int ActorId;
+            public readonly EntityId SurfaceId;
+            public readonly EntityId ActorId;
 
-            public CellKey(int surfaceId, int actorId)
+            public CellKey(EntityId surfaceId, EntityId actorId)
             {
                 SurfaceId = surfaceId;
                 ActorId = actorId;
@@ -105,7 +105,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             {
                 unchecked
                 {
-                    return (SurfaceId * 397) ^ ActorId;
+                    return (SurfaceId.GetHashCode() * 397) ^ ActorId.GetHashCode();
                 }
             }
         }
@@ -198,9 +198,9 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             out WAVESResolvedFootstep effect)
         {
             EnsureIndex();
-            int surfaceId = IdOf(surface);
-            int actorId = IdOf(actor);
-            int stepId = IdOf(step);
+            EntityId surfaceId = IdOf(surface);
+            EntityId actorId = IdOf(actor);
+            EntityId stepId = IdOf(step);
 
             bool hasAudio = false;
             AudioResource audio = null;
@@ -226,7 +226,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
 
                 for (int stepOrder = 0; stepOrder < 2 && !(hasAudio && hasVisual); stepOrder++)
                 {
-                    StepSlot slot = data.FindStep(stepOrder == 0 ? stepId : 0);
+                    StepSlot slot = data.FindStep(stepOrder == 0 ? stepId : EntityId.None);
                     if (slot == null)
                         continue;
 
@@ -412,14 +412,14 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
         }
 
         /// <summary>Same fallback order as before: exact pair, then actor, then surface, then both.</summary>
-        static CellKey PairAt(int order, int surfaceId, int actorId)
+        static CellKey PairAt(int order, EntityId surfaceId, EntityId actorId)
         {
             switch (order)
             {
                 case 0: return new CellKey(surfaceId, actorId);
-                case 1: return new CellKey(surfaceId, 0);
-                case 2: return new CellKey(0, actorId);
-                default: return new CellKey(0, 0);
+                case 1: return new CellKey(surfaceId, EntityId.None);
+                case 2: return new CellKey(EntityId.None, actorId);
+                default: return new CellKey(EntityId.None, EntityId.None);
             }
         }
 
@@ -550,9 +550,9 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             }
         }
 
-        static int IdOf(UnityEngine.Object asset)
+        static EntityId IdOf(UnityEngine.Object asset)
         {
-            return asset != null ? asset.GetInstanceID() : 0;
+            return asset != null ? asset.GetEntityId() : EntityId.None;
         }
 
         [Serializable]
@@ -562,7 +562,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
 
             public int StepCount => _steps != null ? _steps.Count : 0;
 
-            public StepSlot FindStep(int stepId)
+            public StepSlot FindStep(EntityId stepId)
             {
                 if (_steps == null)
                     return null;

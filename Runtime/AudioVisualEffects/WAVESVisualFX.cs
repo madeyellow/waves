@@ -30,12 +30,12 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             public VFXEventAttribute Attribute;
         }
 
-        readonly Dictionary<int, ParticleVoice> _particles = new Dictionary<int, ParticleVoice>();
-        readonly Dictionary<int, GraphVoice> _graphs = new Dictionary<int, GraphVoice>();
+        readonly Dictionary<EntityId, ParticleVoice> _particles = new Dictionary<EntityId, ParticleVoice>();
+        readonly Dictionary<EntityId, GraphVoice> _graphs = new Dictionary<EntityId, GraphVoice>();
 
         /// <inheritdoc />
         public void PlayParticles(
-            int emitterId,
+            EntityId emitterId,
             ActorProfile actor,
             Vector3 position,
             Quaternion rotation,
@@ -45,7 +45,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             if (particles == null || WAVESView.BeyondCamera(position, cullingDistance))
                 return;
 
-            int id = particles.GetInstanceID();
+            EntityId id = particles.GetEntityId();
             if (!_particles.TryGetValue(id, out ParticleVoice voice) || voice.Root == null)
             {
                 voice = CreateParticles(particles);
@@ -67,7 +67,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
 
         /// <inheritdoc />
         public void PlayGraph(
-            int emitterId,
+            EntityId emitterId,
             ActorProfile actor,
             Vector3 position,
             Quaternion rotation,
@@ -77,7 +77,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             if (graph == null || WAVESView.BeyondCamera(position, cullingDistance))
                 return;
 
-            int id = graph.GetInstanceID();
+            EntityId id = graph.GetEntityId();
             if (!_graphs.TryGetValue(id, out GraphVoice voice) || voice.Effect == null)
             {
                 voice = CreateGraph(graph);
@@ -94,13 +94,13 @@ namespace MadeYellow.WAVES.AudioVisualEffects
 
         void OnDisable()
         {
-            foreach (KeyValuePair<int, ParticleVoice> pair in _particles)
+            foreach (KeyValuePair<EntityId, ParticleVoice> pair in _particles)
             {
                 if (pair.Value.Root != null)
                     Destroy(pair.Value.Root.gameObject);
             }
 
-            foreach (KeyValuePair<int, GraphVoice> pair in _graphs)
+            foreach (KeyValuePair<EntityId, GraphVoice> pair in _graphs)
             {
                 if (pair.Value.Effect != null)
                     Destroy(pair.Value.Effect.gameObject);

@@ -1085,7 +1085,7 @@ namespace MadeYellow.WAVES.Editor
                 return;
             }
 
-            long stamp = texture.GetInstanceID() + (texture.updateCount * 397L);
+            string stamp = texture.GetEntityId().ToString() + ":" + texture.updateCount;
             if (icon == null)
             {
                 icon = new Image
@@ -1099,7 +1099,7 @@ namespace MadeYellow.WAVES.Editor
                 return;
             }
 
-            if (icon.userData is long stored && stored == stamp)
+            if (icon.userData is string stored && stored == stamp)
                 return;
 
             icon.userData = stamp;

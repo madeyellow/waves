@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using MadeYellow.WAVES.Actors;
 using MadeYellow.WAVES.AudioVisualEffects.Abstractions;
@@ -17,9 +18,39 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         struct VoiceSlot
         {
             public AudioSource Source;
-            public int EmitterId;
-            public int ResourceId;
+            public EntityId EmitterId;
+            public EntityId ResourceId;
             public float ReleaseAt;
+        }
+
+        readonly struct VoiceKey : IEquatable<VoiceKey>
+        {
+            public readonly EntityId Emitter;
+            public readonly EntityId Resource;
+
+            public VoiceKey(EntityId emitter, EntityId resource)
+            {
+                Emitter = emitter;
+                Resource = resource;
+            }
+
+            public bool Equals(VoiceKey other)
+            {
+                return Emitter == other.Emitter && Resource == other.Resource;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is VoiceKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (Emitter.GetHashCode() * 397) ^ Resource.GetHashCode();
+                }
+            }
         }
 
         /// <summary>Seconds. A second play of the same resource inside this window is dropped.</summary>
@@ -33,13 +64,13 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         float _holdSeconds = 5f;
 
         readonly List<VoiceSlot> _active = new List<VoiceSlot>(32);
-        readonly Dictionary<long, int> _activeIndex = new Dictionary<long, int>(32);
+        readonly Dictionary<VoiceKey, int> _activeIndex = new Dictionary<VoiceKey, int>(32);
         readonly Stack<AudioSource> _idle = new Stack<AudioSource>(16);
-        readonly Dictionary<int, float> _suppressUntil = new Dictionary<int, float>(16);
+        readonly Dictionary<EntityId, float> _suppressUntil = new Dictionary<EntityId, float>(16);
 
         /// <inheritdoc />
         public void Play(
-            int emitterId,
+            EntityId emitterId,
             ActorProfile actor,
             Vector3 position,
             float cullingDistance,
@@ -51,7 +82,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             if (resource == null || WAVESView.BeyondListener(position, cullingDistance))
                 return;
 
-            int resourceId = resource.GetInstanceID();
+            EntityId resourceId = resource.GetEntityId();
             float now = Time.time;
             if (_debounce > 0f
                 && _suppressUntil.TryGetValue(resourceId, out float until)
@@ -61,7 +92,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             if (_debounce > 0f)
                 _suppressUntil[resourceId] = now + _debounce;
 
-            long key = VoiceKey(emitterId, resourceId);
+            var key = new VoiceKey(emitterId, resourceId);
             if (_activeIndex.TryGetValue(key, out int index))
             {
                 VoiceSlot slot = _active[index];
@@ -125,7 +156,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         void ReleaseAt(int index)
         {
             VoiceSlot slot = _active[index];
-            _activeIndex.Remove(VoiceKey(slot.EmitterId, slot.ResourceId));
+            _activeIndex.Remove(new VoiceKey(slot.EmitterId, slot.ResourceId));
             if (slot.Source != null)
             {
                 slot.Source.Stop();
@@ -138,7 +169,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             {
                 VoiceSlot moved = _active[last];
                 _active[index] = moved;
-                _activeIndex[VoiceKey(moved.EmitterId, moved.ResourceId)] = index;
+                _activeIndex[new VoiceKey(moved.EmitterId, moved.ResourceId)] = index;
             }
 
             _active.RemoveAt(last);
@@ -186,9 +217,5 @@ namespace MadeYellow.WAVES.AudioVisualEffects
                 source.resource = resource;
         }
 
-        static long VoiceKey(int emitterId, int resourceId)
-        {
-            return ((long)emitterId << 32) | (uint)resourceId;
-        }
     }
 }

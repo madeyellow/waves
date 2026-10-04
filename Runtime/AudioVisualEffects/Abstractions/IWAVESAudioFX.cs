@@ -12,7 +12,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Abstractions
         /// A repeat of the same resource inside the debounce window is ignored.
         /// </summary>
         void Play(
-            int emitterId,
+            EntityId emitterId,
             ActorProfile actor,
             Vector3 position,
             float cullingDistance,

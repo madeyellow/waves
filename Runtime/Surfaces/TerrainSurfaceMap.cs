@@ -30,7 +30,7 @@ namespace MadeYellow.WAVES.Surfaces
             _terrain = GetComponent<Terrain>();
             _collider = GetComponent<TerrainCollider>();
             if (_collider != null)
-                SurfaceRegistry.RegisterTerrain(_collider.GetInstanceID(), this);
+                SurfaceRegistry.RegisterTerrain(_collider.GetEntityId(), this);
 
             BuildMap();
         }
@@ -41,7 +41,7 @@ namespace MadeYellow.WAVES.Surfaces
                 return;
 
             if (_collider != null)
-                SurfaceRegistry.UnregisterTerrain(_collider.GetInstanceID(), this);
+                SurfaceRegistry.UnregisterTerrain(_collider.GetEntityId(), this);
 
             _dominant = null;
             _layerToSurface = null;

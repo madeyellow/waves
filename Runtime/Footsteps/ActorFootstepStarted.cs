@@ -8,8 +8,8 @@ namespace MadeYellow.WAVES.Footsteps
     [Serializable]
     public struct ActorFootstepStarted
     {
-        /// <summary>Instance id of the GameObject that published the step.</summary>
-        public int emitterId;
+        /// <summary>Identity of the GameObject that published the step.</summary>
+        public EntityId emitterId;
 
         /// <summary>Kind of actor that started the step. Null when the dispatcher has no profile.</summary>
         public ActorProfile actor;

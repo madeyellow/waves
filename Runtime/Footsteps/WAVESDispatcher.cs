@@ -141,7 +141,7 @@ namespace MadeYellow.WAVES.Footsteps
 
             PublishEvent(new ActorFootstepStarted
             {
-                emitterId = gameObject.GetInstanceID(),
+                emitterId = gameObject.GetEntityId(),
                 actor = _actor,
                 channelHash = step.channelHash,
                 type = step.type,

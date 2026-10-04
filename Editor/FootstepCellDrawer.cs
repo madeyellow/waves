@@ -66,7 +66,7 @@ namespace MadeYellow.WAVES.Editor
             FootstepType step,
             bool openByDefault)
         {
-            int stepId = step != null ? step.GetInstanceID() : 0;
+            string stepId = step != null ? step.GetEntityId().ToString() : EntityId.None.ToString();
             string key = scope + ".t." + stepId;
             EditorGUILayout.Space(2f);
             int index = FindStep(steps, step);
