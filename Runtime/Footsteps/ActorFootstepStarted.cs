@@ -17,7 +17,7 @@ namespace MadeYellow.WAVES.Footsteps
         /// <summary>Animator hash of the track name.</summary>
         public int channelHash;
 
-        /// <summary>Footstep type closest to the curve weight. Null when no types exist.</summary>
+        /// <summary>Footstep type the curve held. Null when no types exist.</summary>
         public FootstepType type;
 
         /// <summary>Ground hit for this sample. The collider is null when the ray missed or raycasting is off.</summary>

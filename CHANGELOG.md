@@ -6,6 +6,10 @@
 
 - The Footstep Editor Bake button stays a normal button when there is nothing to bake, and turns green when the clip has unbaked changes.
 
+### Fixed
+
+- Footstep Reader no longer reports a step from a curve sample that is only passing through another footstep weight. A contact starts after the curve holds near one weight for two samples in a row, so a blend or ramp between silence and Run is not reported as Walk. The start event waits for that second sample. If the curve goes quiet before then, no event is raised.
+
 ## [0.1.1] - 2026-10-04
 
 ### Changed

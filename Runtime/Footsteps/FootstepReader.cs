@@ -42,9 +42,6 @@ namespace MadeYellow.WAVES.Footsteps
     [Icon("Packages/com.madeyellow.waves/Editor/Icons/footstep-window-icon.png")]
     public sealed class FootstepReader : MonoBehaviour, ISerializationCallbackReceiver
     {
-        /// <summary>Curve values below this are treated as no contact.</summary>
-        const float ContactEpsilon = 0.0001f;
-
         /// <summary>Extra ray length below the foot, in meters.</summary>
         const float RaycastReach = 2f;
 
@@ -378,6 +375,9 @@ namespace MadeYellow.WAVES.Footsteps
         /// <remarks>
         /// Call this when <see cref="SampleTiming"/> is <see cref="FootstepSampleTiming.Manual"/>.
         /// <see cref="FootstepSampleTiming.Update"/>, <see cref="FootstepSampleTiming.LateUpdate"/>, and <see cref="FootstepSampleTiming.FixedUpdate"/> call it on their own.
+        /// A contact starts after the curve holds near one footstep weight for two samples in a row.
+        /// Samples between weights do not open a step or change its type. The start event waits for that second sample.
+        /// If the curve goes quiet before then, no event is raised.
         /// </remarks>
         public void SampleFootsteps()
         {
@@ -391,25 +391,26 @@ namespace MadeYellow.WAVES.Footsteps
                     continue;
 
                 float weight = _animator.GetFloat(track.CurveHash);
-                bool active = Mathf.Abs(weight) > ContactEpsilon;
-                if (active)
+                switch (track.Latch.Sample(weight, _types))
                 {
-                    if (!track.InContactPhase)
-                        BeginStep(track, weight);
-                    else if (Mathf.Abs(weight - track.Weight) > ContactEpsilon)
-                        ContinueStep(track, weight);
-                }
-                else if (track.InContactPhase)
-                {
-                    EndStep(track);
+                    case FootstepLatchSignal.Began:
+                        BeginStep(track, track.Latch.Weight, track.Latch.Type);
+                        break;
+                    case FootstepLatchSignal.Retyped:
+                        ContinueStep(track, track.Latch.Weight, track.Latch.Type);
+                        break;
+                    case FootstepLatchSignal.Ended:
+                        EndStep(track);
+                        break;
                 }
             }
         }
 
         /// <summary>Opens a contact and raises the start events.</summary>
-        /// <param name="track">Track whose curve just became active.</param>
-        /// <param name="weight">Animator curve value that opened the contact.</param>
-        void BeginStep(FootstepTrack track, float weight)
+        /// <param name="track">Track whose curve just held a footstep weight.</param>
+        /// <param name="weight">Curve value of the confirmed plateau.</param>
+        /// <param name="type">Footstep type that plateau belongs to. Null when no types are known.</param>
+        void BeginStep(FootstepTrack track, float weight, FootstepType type)
         {
             Transform foot = ResolveFoot(track.Name);
             Quaternion rotation = foot != null ? foot.rotation : Quaternion.identity;
@@ -420,7 +421,7 @@ namespace MadeYellow.WAVES.Footsteps
             var step = new FootstepData
             {
                 channelHash = track.Hash,
-                type = MatchType(weight),
+                type = type,
                 hit = hit,
                 rotation = rotation
             };
@@ -431,10 +432,11 @@ namespace MadeYellow.WAVES.Footsteps
 
         /// <summary>Updates the step type while the foot stays down.</summary>
         /// <param name="track">Track that is already in contact.</param>
-        /// <param name="weight">Latest animator curve value.</param>
-        void ContinueStep(FootstepTrack track, float weight)
+        /// <param name="weight">Curve value of the new plateau.</param>
+        /// <param name="type">Footstep type that plateau belongs to.</param>
+        void ContinueStep(FootstepTrack track, float weight, FootstepType type)
         {
-            track.Continue(weight, MatchType(weight));
+            track.Continue(weight, type);
         }
 
         /// <summary>Closes a contact and raises the finish events.</summary>
@@ -487,33 +489,6 @@ namespace MadeYellow.WAVES.Footsteps
             }
 
             return null;
-        }
-
-        /// <summary>Picks the footstep type whose weight is closest to the curve.</summary>
-        /// <param name="weight">Animator curve value.</param>
-        /// <returns>The closest type, or null when no types are known.</returns>
-        FootstepType MatchType(float weight)
-        {
-            if (_types == null)
-                return null;
-
-            FootstepType best = null;
-            float bestDistance = float.MaxValue;
-            for (int i = 0; i < _types.Count; i++)
-            {
-                FootstepType type = _types[i];
-                if (type == null)
-                    continue;
-
-                float distance = Mathf.Abs(type.weight - weight);
-                if (distance >= bestDistance)
-                    continue;
-
-                bestDistance = distance;
-                best = type;
-            }
-
-            return best;
         }
 
 #if UNITY_EDITOR
@@ -643,7 +618,7 @@ namespace MadeYellow.WAVES.Footsteps
                 Vector3 origin = grounded ? state.hit.point : center;
                 Gizmos.color = track.Color;
                 Gizmos.DrawSphere(center, radius);
-                if (normal.sqrMagnitude <= ContactEpsilon)
+                if (normal.sqrMagnitude <= FootstepContactLatch.ContactEpsilon)
                     continue;
 
                 Gizmos.DrawRay(origin, normal * normalLength);

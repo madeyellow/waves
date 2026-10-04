@@ -24,6 +24,9 @@ namespace MadeYellow.WAVES.Footsteps
         /// <summary>Curve weight sampled for the current contact.</summary>
         internal float Weight { get; private set; }
 
+        /// <summary>Decides when this track's curve is a real step.</summary>
+        internal FootstepContactLatch Latch { get; } = new FootstepContactLatch();
+
         /// <summary>Color used to draw this track.</summary>
         internal Color Color => _color;
 
@@ -73,8 +76,8 @@ namespace MadeYellow.WAVES.Footsteps
         }
 
         /// <summary>Keeps the contact open and refreshes its step type.</summary>
-        /// <param name="weight">Latest animator curve value.</param>
-        /// <param name="type">Footstep type closest to <paramref name="weight"/>.</param>
+        /// <param name="weight">Curve value of the confirmed plateau.</param>
+        /// <param name="type">Footstep type that plateau belongs to.</param>
         internal void Continue(float weight, FootstepType type)
         {
             Weight = weight;
