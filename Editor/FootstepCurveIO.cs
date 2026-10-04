@@ -226,6 +226,12 @@ namespace MadeYellow.WAVES.Editor
             if (keys.Count == 0)
                 AddKey(keys, 0f, 0f, epsilon);
 
+            // The importer treats the last key as the end of the clip. Silence
+            // after the final step still needs a key at the clip length, which
+            // becomes normalized time 1. Otherwise the clip is stretched.
+            if (clipLength > keys[keys.Count - 1].time)
+                AddKey(keys, clipLength, 0f, epsilon);
+
             // Importer curves are normalized: 0 is the first frame and 1 is the
             // last frame from the clip settings. A key written in seconds (for a
             // 2s clip, time 2) is treated as twice the clip and doubles its length.
