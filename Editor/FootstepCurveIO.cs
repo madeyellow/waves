@@ -203,17 +203,12 @@ namespace MadeYellow.WAVES.Editor
                 float end = Mathf.Max(start + epsilon, step.end);
                 float weight = step.type != null ? step.type.weight : step.weight;
 
-                if (keys.Count == 0)
-                {
-                    if (start > epsilon)
-                        AddKey(keys, 0f, 0f, epsilon);
-                }
-                else if (start > coveredUntil + epsilon * 0.5f)
+                if (keys.Count > 0 && start > coveredUntil + epsilon * 0.5f)
                 {
                     if (Mathf.Abs(keys[keys.Count - 1].value) > SilentEpsilon)
                         AddKey(keys, coveredUntil, 0f, epsilon);
                 }
-                else if (Mathf.Abs(keys[keys.Count - 1].value) <= SilentEpsilon)
+                else if (keys.Count > 0 && Mathf.Abs(keys[keys.Count - 1].value) <= SilentEpsilon)
                 {
                     keys.RemoveAt(keys.Count - 1);
                 }
@@ -226,9 +221,12 @@ namespace MadeYellow.WAVES.Editor
             if (keys.Count == 0)
                 AddKey(keys, 0f, 0f, epsilon);
 
-            // The importer treats the last key as the end of the clip. Silence
-            // after the final step still needs a key at the clip length, which
-            // becomes normalized time 1. Otherwise the clip is stretched.
+            // The importer maps the first key to the start of the clip and the
+            // last key to the end. Silence before the first step and after the
+            // last one still needs keys at 0 and at the clip length, or the
+            // step is stretched across the whole clip.
+            if (keys[0].time > 0f)
+                keys.Insert(0, new Keyframe(0f, 0f, 0f, 0f));
             if (clipLength > keys[keys.Count - 1].time)
                 AddKey(keys, clipLength, 0f, epsilon);
 

@@ -124,7 +124,7 @@ namespace MadeYellow.WAVES.Tests.Editor
         }
 
         [Test]
-        public void BuildCurve_HoldsSilenceUntilTheEndOfTheClip()
+        public void BuildCurve_HoldsSilenceAcrossTheWholeClip()
         {
             var walk = ScriptableObject.CreateInstance<FootstepType>();
             walk.weight = 1f;
@@ -139,6 +139,9 @@ namespace MadeYellow.WAVES.Tests.Editor
 
                 AnimationCurve curve = FootstepCurveIO.BuildCurve(60f, 2f, steps);
 
+                Assert.That(curve.keys[0].time, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(curve.keys[0].value, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(curve.Evaluate(0.05f), Is.EqualTo(0f).Within(0.0001f));
                 Assert.That(curve.keys[curve.length - 1].time, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(curve.keys[curve.length - 1].value, Is.EqualTo(0f).Within(0.0001f));
                 Assert.That(curve.Evaluate(0.75f), Is.EqualTo(0f).Within(0.0001f));
@@ -147,6 +150,17 @@ namespace MadeYellow.WAVES.Tests.Editor
                 Assert.That(loaded, Has.Count.EqualTo(1));
                 Assert.That(loaded[0].start, Is.EqualTo(0.2f).Within(0.0001f));
                 Assert.That(loaded[0].end, Is.EqualTo(0.5f).Within(0.0001f));
+
+                float frame = 1f / 60f;
+                AnimationCurve early = FootstepCurveIO.BuildCurve(60f, 2f, new List<FootstepMarker>
+                {
+                    new FootstepMarker { start = frame, end = 0.5f, type = walk, weight = walk.weight }
+                });
+                Assert.That(early.keys[0].time, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(early.keys[0].value, Is.EqualTo(0f).Within(0.0001f));
+                List<FootstepMarker> earlyLoaded = FootstepCurveIO.ReadCurve(early, 2f, 60f, new[] { walk });
+                Assert.That(earlyLoaded, Has.Count.EqualTo(1));
+                Assert.That(earlyLoaded[0].start, Is.EqualTo(frame).Within(0.0001f));
 
                 AnimationCurve empty = FootstepCurveIO.BuildCurve(60f, 2f, new List<FootstepMarker>());
                 Assert.That(empty.keys[0].time, Is.EqualTo(0f).Within(0.0001f));
