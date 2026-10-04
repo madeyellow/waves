@@ -163,7 +163,13 @@ namespace MadeYellow.WAVES.Editor
                     x += SectionIconSize + 4f;
                 }
 
-                EditorGUI.LabelField(new Rect(x, row.y, Mathf.Max(0f, row.xMax - x), row.height), title, EditorStyles.boldLabel);
+                // GUI.Label, because EditorGUI.LabelField claims a control id. Claiming one only on
+                // repaint shifts every id after it, so a click lands on a different control than the
+                // one that was drawn and number fields never take the keyboard.
+                GUI.Label(
+                    EditorGUI.IndentedRect(new Rect(x, row.y, Mathf.Max(0f, row.xMax - x), row.height)),
+                    title,
+                    EditorStyles.boldLabel);
             }
 
             if (!next)
@@ -489,8 +495,8 @@ namespace MadeYellow.WAVES.Editor
             if (Event.current.type == EventType.Repaint)
             {
                 float x = row.x + SectionArrowWidth;
-                EditorGUI.LabelField(
-                    new Rect(x, row.y, Mathf.Max(0f, row.xMax - x), row.height),
+                GUI.Label(
+                    EditorGUI.IndentedRect(new Rect(x, row.y, Mathf.Max(0f, row.xMax - x), row.height)),
                     label,
                     EditorStyles.boldLabel);
             }
