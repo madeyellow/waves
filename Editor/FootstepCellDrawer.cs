@@ -26,6 +26,8 @@ namespace MadeYellow.WAVES.Editor
         static int _labelPaletteRevision = -1;
         static Texture _audioStatusIcon;
         static Texture _visualStatusIcon;
+        static Texture _gearIcon;
+        static bool _gearPro;
         static Texture2D _stepContentTexture;
         static GUIStyle _stepContentStyle;
         static bool _stepPanelPro;
@@ -45,6 +47,7 @@ namespace MadeYellow.WAVES.Editor
                 return;
             }
 
+            DrawTypeHeader();
             for (int i = 0; i < WAVESCatalog.Steps.Count; i++)
             {
                 FootstepType step = WAVESCatalog.Steps[i];
@@ -53,9 +56,44 @@ namespace MadeYellow.WAVES.Editor
 
                 DrawStep(steps, scope, step.name, step, false);
             }
+
             EditorGUILayout.Space(8f);
-            Rect create = GUILayoutUtility.GetRect(1f, 30f, GUILayout.ExpandWidth(true), GUILayout.Height(30f));
-            if (WAVESChrome.FlatButton(create, "Manage Footstep Types"))
+            EnsureStatusIcons();
+            DrawEffectGroup("Common effects settings");
+            EditorGUI.indentLevel++;
+            DrawEffectGroup("AudioFX", _audioStatusIcon, true);
+            EditorGUI.indentLevel++;
+            PlaybackDraft common = PlaybackDraft.Read(data);
+            EditorGUI.BeginChangeCheck();
+            DrawPlayback(ref common);
+            if (EditorGUI.EndChangeCheck())
+                common.Write(data);
+            EditorGUI.indentLevel--;
+            DrawEffectGroup("VisualFX", _visualStatusIcon, true);
+            EditorGUI.indentLevel++;
+            EditorGUILayout.LabelField("<b>WIP</b> Coming soon.", NoteLabel());
+            EditorGUI.indentLevel--;
+            EditorGUI.indentLevel--;
+        }
+
+        static void DrawTypeHeader()
+        {
+            const float gearSize = 18f;
+            const float gearGap = 4f;
+            float height = Mathf.Max(EditorGUIUtility.singleLineHeight + 2f, gearSize);
+            Rect row = EditorGUILayout.GetControlRect(false, height, GUIStyle.none);
+            EnsureLabels();
+            GUI.Label(
+                new Rect(row.x, row.y, Mathf.Max(0f, row.width - gearSize - gearGap), row.height),
+                "Footstep type effects",
+                InkLabel());
+
+            var gear = new Rect(
+                row.xMax - gearSize,
+                row.y + (row.height - gearSize) * 0.5f,
+                gearSize,
+                gearSize);
+            if (GUI.Button(gear, new GUIContent(GearIcon(), "Manage footstep types"), EditorStyles.iconButton))
                 FootstepTypeSettingsWindow.Open();
         }
 
@@ -88,12 +126,8 @@ namespace MadeYellow.WAVES.Editor
             AudioResource audio = element != null
                 ? element.FindPropertyRelative("_audio").objectReferenceValue as AudioResource
                 : null;
-            float audible = element != null ? element.FindPropertyRelative("_audibleDistance").floatValue : 15f;
-            float min = element != null ? element.FindPropertyRelative("_minDistance").floatValue : 1f;
-            var rolloff = element != null
-                ? (AudioRolloffMode)element.FindPropertyRelative("_rolloff").enumValueIndex
-                : AudioRolloffMode.Logarithmic;
-            float doppler = element != null ? element.FindPropertyRelative("_dopplerLevel").floatValue : 0f;
+            bool overrideSettings = element != null && element.FindPropertyRelative("_overrideSettings").boolValue;
+            PlaybackDraft playback = PlaybackDraft.Read(element);
             ParticleSystem particles = element != null
                 ? element.FindPropertyRelative("_particles").objectReferenceValue as ParticleSystem
                 : null;
@@ -103,7 +137,8 @@ namespace MadeYellow.WAVES.Editor
             float visible = element != null ? element.FindPropertyRelative("_visibleDistance").floatValue : 20f;
 
             EditorGUI.BeginChangeCheck();
-            DrawEffectGroup("AudioFX");
+            EnsureStatusIcons();
+            DrawEffectGroup("AudioFX", _audioStatusIcon, audio != null);
             EditorGUI.indentLevel++;
             audio = AssetField(
                 new GUIContent("Audio", "Audio Random Container is recommended. A clip still plays, without a sequence. Dropping a scene object takes the resource from its Audio Source."),
@@ -118,20 +153,15 @@ namespace MadeYellow.WAVES.Editor
                         MessageType.Info);
                 }
 
-                audible = EditorGUILayout.FloatField(
-                    new GUIContent("Audible Distance", "Meters. Also the AudioSource max distance and the cull distance."),
-                    audible);
-                min = EditorGUILayout.FloatField(
-                    new GUIContent("Min Distance", "Meters. Inside this distance the sound stays at full volume."),
-                    min);
-                rolloff = (AudioRolloffMode)EditorGUILayout.EnumPopup(new GUIContent("Rolloff"), rolloff);
-                doppler = EditorGUILayout.FloatField(
-                    new GUIContent("Doppler Level", "Zero keeps a source that jumps to the foot from changing pitch."),
-                    doppler);
+                overrideSettings = EditorGUILayout.Toggle(
+                    new GUIContent("Override settings", "Playback settings for this footstep type. While this is off, the group common settings are used."),
+                    overrideSettings);
+                if (overrideSettings)
+                    DrawPlayback(ref playback);
             }
 
             EditorGUI.indentLevel--;
-            DrawEffectGroup("VisualFX");
+            DrawEffectGroup("VisualFX", _visualStatusIcon, particles != null || graph != null);
             EditorGUI.indentLevel++;
             bool showParticles = particles != null || graph == null;
             bool showGraph = graph != null || particles == null;
@@ -184,10 +214,8 @@ namespace MadeYellow.WAVES.Editor
             }
 
             element.FindPropertyRelative("_audio").objectReferenceValue = audio;
-            element.FindPropertyRelative("_audibleDistance").floatValue = audible < 0f ? 0f : audible;
-            element.FindPropertyRelative("_minDistance").floatValue = min < 0f ? 0f : min;
-            element.FindPropertyRelative("_rolloff").enumValueIndex = (int)rolloff;
-            element.FindPropertyRelative("_dopplerLevel").floatValue = doppler < 0f ? 0f : doppler;
+            element.FindPropertyRelative("_overrideSettings").boolValue = overrideSettings;
+            playback.Write(element);
             element.FindPropertyRelative("_particles").objectReferenceValue = particles;
             element.FindPropertyRelative("_graph").objectReferenceValue = graph;
             element.FindPropertyRelative("_visibleDistance").floatValue = visible < 0f ? 0f : visible;
@@ -322,10 +350,155 @@ namespace MadeYellow.WAVES.Editor
             EditorGUILayout.EndHorizontal();
         }
 
+        struct PlaybackDraft
+        {
+            public AudioMixerGroup Mixer;
+            public float Volume;
+            public float Spatial;
+            public float Reverb;
+            public float Audible;
+            public float Min;
+            public AudioRolloffMode Rolloff;
+            public float Doppler;
+
+            public static PlaybackDraft Defaults => new PlaybackDraft
+            {
+                Volume = 1f,
+                Spatial = 1f,
+                Reverb = 1f,
+                Audible = 15f,
+                Min = 1f,
+                Rolloff = AudioRolloffMode.Logarithmic
+            };
+
+            public static PlaybackDraft Read(SerializedProperty parent)
+            {
+                if (parent == null || parent.FindPropertyRelative("_volume") == null)
+                    return Defaults;
+
+                return new PlaybackDraft
+                {
+                    Mixer = parent.FindPropertyRelative("_mixerGroup").objectReferenceValue as AudioMixerGroup,
+                    Volume = parent.FindPropertyRelative("_volume").floatValue,
+                    Spatial = parent.FindPropertyRelative("_spatialBlend").floatValue,
+                    Reverb = parent.FindPropertyRelative("_reverbZoneMix").floatValue,
+                    Audible = parent.FindPropertyRelative("_audibleDistance").floatValue,
+                    Min = parent.FindPropertyRelative("_minDistance").floatValue,
+                    Rolloff = (AudioRolloffMode)parent.FindPropertyRelative("_rolloff").enumValueIndex,
+                    Doppler = parent.FindPropertyRelative("_dopplerLevel").floatValue
+                };
+            }
+
+            public void Write(SerializedProperty parent)
+            {
+                if (parent == null || parent.FindPropertyRelative("_volume") == null)
+                    return;
+
+                parent.FindPropertyRelative("_mixerGroup").objectReferenceValue = Mixer;
+                parent.FindPropertyRelative("_volume").floatValue = Unit(Volume);
+                parent.FindPropertyRelative("_spatialBlend").floatValue = Unit(Spatial);
+                parent.FindPropertyRelative("_reverbZoneMix").floatValue = Unit(Reverb);
+                parent.FindPropertyRelative("_audibleDistance").floatValue = Audible < 0f ? 0f : Audible;
+                parent.FindPropertyRelative("_minDistance").floatValue = Min < 0f ? 0f : Min;
+                parent.FindPropertyRelative("_rolloff").enumValueIndex = (int)Rolloff;
+                parent.FindPropertyRelative("_dopplerLevel").floatValue = Doppler < 0f ? 0f : Doppler;
+            }
+        }
+
+        static void DrawPlayback(ref PlaybackDraft playback)
+        {
+            playback.Mixer = (AudioMixerGroup)EditorGUILayout.ObjectField(
+                new GUIContent("Audio Mixer Group", "Mixer group this sound is routed through. Empty plays straight to the listener."),
+                playback.Mixer,
+                typeof(AudioMixerGroup),
+                false);
+            playback.Volume = EditorGUILayout.Slider(
+                new GUIContent("Volume", "Linear loudness, from silent to full."),
+                Unit(playback.Volume),
+                0f,
+                1f);
+            playback.Spatial = SpatialBlendSlider(
+                new GUIContent("Spatial Blend", "0 plays in 2D. 1 plays in 3D at the foot."),
+                playback.Spatial);
+            playback.Reverb = EditorGUILayout.Slider(
+                new GUIContent("Reverb Zone Mix", "How much of this sound is sent to reverb zones."),
+                Unit(playback.Reverb),
+                0f,
+                1f);
+            playback.Audible = EditorGUILayout.FloatField(
+                new GUIContent("Audible Distance", "Meters. Also the AudioSource max distance and the cull distance."),
+                playback.Audible);
+            playback.Min = EditorGUILayout.FloatField(
+                new GUIContent("Min Distance", "Meters. Inside this distance the sound stays at full volume."),
+                playback.Min);
+            playback.Rolloff = (AudioRolloffMode)EditorGUILayout.EnumPopup(new GUIContent("Rolloff"), playback.Rolloff);
+            playback.Doppler = EditorGUILayout.FloatField(
+                new GUIContent("Doppler Level", "Zero keeps a source that jumps to the foot from changing pitch."),
+                playback.Doppler);
+        }
+
+        static float SpatialBlendSlider(GUIContent label, float value)
+        {
+            float captionHeight = EditorStyles.miniLabel.lineHeight;
+            Rect block = EditorGUILayout.GetControlRect(true, EditorGUIUtility.singleLineHeight + captionHeight);
+            Rect slider = new Rect(block.x, block.y, block.width, EditorGUIUtility.singleLineHeight);
+            value = Unit(EditorGUI.Slider(slider, label, value, 0f, 1f));
+
+            const float gap = 5f;
+            float trackX = slider.x + EditorGUIUtility.labelWidth;
+            float trackWidth = Mathf.Max(0f, slider.width - EditorGUIUtility.labelWidth - EditorGUIUtility.fieldWidth - gap);
+            var captions = new Rect(trackX, slider.yMax, trackWidth, captionHeight);
+            if (Event.current.type == EventType.Repaint)
+            {
+                GUI.Label(captions, "2D", EditorStyles.miniLabel);
+                GUI.Label(captions, "3D", BlendEndLabel());
+            }
+
+            return value;
+        }
+
+        static GUIStyle _blendEndLabel;
+        static bool _blendEndPro;
+        static GUIStyle _noteLabel;
+        static bool _notePro;
+
+        static GUIStyle BlendEndLabel()
+        {
+            bool pro = EditorGUIUtility.isProSkin;
+            if (_blendEndLabel != null && _blendEndPro == pro)
+                return _blendEndLabel;
+
+            _blendEndPro = pro;
+            _blendEndLabel = new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.MiddleRight
+            };
+            return _blendEndLabel;
+        }
+
+        static float Unit(float value)
+        {
+            if (value < 0f)
+                return 0f;
+            return value > 1f ? 1f : value;
+        }
+
         static void DrawEffectGroup(string title)
+        {
+            DrawEffectGroup(title, null, true);
+        }
+
+        static void DrawEffectGroup(string title, Texture icon, bool active)
         {
             EditorGUILayout.Space(6f);
             Rect row = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight + 2f, GUIStyle.none);
+            float indent = EditorGUI.indentLevel * 15f;
+            if (indent > 0.5f)
+            {
+                row.x += indent;
+                row.width = Mathf.Max(0f, row.width - indent);
+            }
+
             if (Event.current.type == EventType.Repaint)
             {
                 EditorGUI.DrawRect(row, WAVESPalettePreferences.EffectFill);
@@ -333,10 +506,34 @@ namespace MadeYellow.WAVES.Editor
                 EditorGUI.DrawRect(new Rect(row.x, row.yMax - 1f, row.width, 1f), line);
             }
 
+            float labelX = row.x + 6f;
+            if (icon != null)
+            {
+                float y = row.y + (row.height - StatusIconSize) * 0.5f;
+                if (Event.current.type == EventType.Repaint)
+                    DrawStatusIcon(new Rect(labelX, y, StatusIconSize, StatusIconSize), icon, active);
+                labelX += StatusIconSize + StatusIconGap;
+            }
+
             EditorGUI.LabelField(
-                new Rect(row.x + 6f, row.y, Mathf.Max(0f, row.width - 6f), row.height),
+                new Rect(labelX, row.y, Mathf.Max(0f, row.xMax - labelX), row.height),
                 title,
                 EditorStyles.boldLabel);
+        }
+
+        static GUIStyle NoteLabel()
+        {
+            bool pro = EditorGUIUtility.isProSkin;
+            if (_noteLabel != null && _notePro == pro)
+                return _noteLabel;
+
+            _notePro = pro;
+            _noteLabel = new GUIStyle(EditorStyles.label)
+            {
+                richText = true,
+                wordWrap = true
+            };
+            return _noteLabel;
         }
 
         static bool DrawFoldout(
@@ -412,6 +609,23 @@ namespace MadeYellow.WAVES.Editor
                 _audioStatusIcon = EditorGUIUtility.ObjectContent(null, typeof(AudioSource)).image;
             if (_visualStatusIcon == null)
                 _visualStatusIcon = EditorGUIUtility.ObjectContent(null, typeof(ParticleSystem)).image;
+        }
+
+        static Texture GearIcon()
+        {
+            bool pro = EditorGUIUtility.isProSkin;
+            if (_gearIcon != null && _gearPro == pro)
+                return _gearIcon;
+
+            _gearPro = pro;
+            string primary = pro ? "d_Settings" : "Settings";
+            string fallback = pro ? "Settings" : "d_Settings";
+            _gearIcon = EditorGUIUtility.IconContent(primary).image;
+            if (_gearIcon == null)
+                _gearIcon = EditorGUIUtility.IconContent(fallback).image;
+            if (_gearIcon == null)
+                _gearIcon = EditorGUIUtility.IconContent("_Popup").image;
+            return _gearIcon;
         }
 
         static Color StepHeaderColor()

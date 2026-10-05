@@ -45,7 +45,8 @@ namespace MadeYellow.WAVES.Tests.Editor
             _preset.SetBinding(
                 null, null, null,
                 _fallbackClip, 12f, 1f, AudioRolloffMode.Linear, 0f,
-                null, null, 8f);
+                null, null, 8f,
+                true);
 
             bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
 
@@ -65,7 +66,8 @@ namespace MadeYellow.WAVES.Tests.Editor
             _preset.SetBinding(
                 _surface, _actor, _step,
                 _stepClip, 4f, 0.5f, AudioRolloffMode.Linear, 0f,
-                null, null, 3f);
+                null, null, 3f,
+                true);
 
             bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
 
@@ -188,6 +190,84 @@ namespace MadeYellow.WAVES.Tests.Editor
             Assert.IsTrue(missed);
             Assert.AreSame(_fallbackClip, missedEffect.Audio);
             Object.DestroyImmediate(other);
+        }
+
+        [Test]
+        public void TryResolve_UsesTheSupplyingGroupsCommonPlayback()
+        {
+            _preset.SetBinding(
+                null, null, null,
+                _fallbackClip, 9f, 1f, AudioRolloffMode.Logarithmic, 0f,
+                null, null, 8f);
+            _preset.SetCommonAudio(
+                null, null,
+                null, 0.35f, 0.1f, 0.7f,
+                11f, 2f, AudioRolloffMode.Linear, 0.4f);
+
+            bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
+
+            Assert.IsTrue(found);
+            Assert.AreSame(_fallbackClip, effect.Audio);
+            Assert.IsNull(effect.MixerGroup);
+            Assert.AreEqual(0.35f, effect.Volume);
+            Assert.AreEqual(0.1f, effect.SpatialBlend);
+            Assert.AreEqual(0.7f, effect.ReverbZoneMix);
+            Assert.AreEqual(11f, effect.AudibleDistance);
+            Assert.AreEqual(2f, effect.MinDistance);
+            Assert.AreEqual(AudioRolloffMode.Linear, effect.Rolloff);
+            Assert.AreEqual(0.4f, effect.DopplerLevel);
+        }
+
+        [Test]
+        public void TryResolve_StepOverrideReplacesCommonPlayback()
+        {
+            _preset.SetBinding(
+                _surface, _actor, _step,
+                _stepClip, 4f, 0.5f, AudioRolloffMode.Linear, 0.2f,
+                null, null, 3f,
+                true, null, 0.8f, 1f, 0.15f);
+            _preset.SetCommonAudio(
+                _surface, _actor,
+                null, 0.2f, 0f, 0.2f,
+                20f, 3f, AudioRolloffMode.Logarithmic, 1f);
+
+            bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
+
+            Assert.IsTrue(found);
+            Assert.AreEqual(0.8f, effect.Volume);
+            Assert.AreEqual(1f, effect.SpatialBlend);
+            Assert.AreEqual(0.15f, effect.ReverbZoneMix);
+            Assert.AreEqual(4f, effect.AudibleDistance);
+            Assert.AreEqual(0.5f, effect.MinDistance);
+            Assert.AreEqual(AudioRolloffMode.Linear, effect.Rolloff);
+            Assert.AreEqual(0.2f, effect.DopplerLevel);
+        }
+
+        [Test]
+        public void MigratePlaybackSettings_KeepsCustomDistancesOnTheStep()
+        {
+            _preset.SetBinding(
+                _surface, _actor, _step,
+                _stepClip, 7f, 2f, AudioRolloffMode.Linear, 0.5f,
+                null, null, 3f);
+
+            var preset = new UnityEditor.SerializedObject(_preset);
+            preset.FindProperty("_settingsVersion").intValue = 0;
+            preset.ApplyModifiedPropertiesWithoutUndo();
+
+            Assert.IsTrue(_preset.MigratePlaybackSettings());
+
+            bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
+
+            Assert.IsTrue(found);
+            Assert.AreEqual(7f, effect.AudibleDistance);
+            Assert.AreEqual(2f, effect.MinDistance);
+            Assert.AreEqual(AudioRolloffMode.Linear, effect.Rolloff);
+            Assert.AreEqual(0.5f, effect.DopplerLevel);
+            Assert.AreEqual(1f, effect.Volume);
+            Assert.AreEqual(1f, effect.SpatialBlend);
+            Assert.AreEqual(1f, effect.ReverbZoneMix);
+            Assert.IsFalse(_preset.MigratePlaybackSettings());
         }
 
         static void WriteLegacy(

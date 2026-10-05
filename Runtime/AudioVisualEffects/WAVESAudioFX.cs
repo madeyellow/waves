@@ -77,7 +77,11 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             float minDistance,
             AudioRolloffMode rolloff,
             float dopplerLevel,
-            AudioResource resource)
+            AudioResource resource,
+            AudioMixerGroup mixerGroup,
+            float volume,
+            float spatialBlend,
+            float reverbZoneMix)
         {
             if (resource == null || WAVESView.BeyondListener(position, cullingDistance))
                 return;
@@ -102,7 +106,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
                 }
                 else
                 {
-                    Configure(slot.Source, resource, position, cullingDistance, minDistance, rolloff, dopplerLevel);
+                    Configure(slot.Source, resource, position, cullingDistance, minDistance, rolloff, dopplerLevel, mixerGroup, volume, spatialBlend, reverbZoneMix);
                     slot.Source.Play();
                     slot.ReleaseAt = now + _holdSeconds;
                     _active[index] = slot;
@@ -111,7 +115,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             }
 
             AudioSource source = TakeIdle();
-            Configure(source, resource, position, cullingDistance, minDistance, rolloff, dopplerLevel);
+            Configure(source, resource, position, cullingDistance, minDistance, rolloff, dopplerLevel, mixerGroup, volume, spatialBlend, reverbZoneMix);
             source.Play();
             _active.Add(new VoiceSlot
             {
@@ -200,7 +204,11 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             float cullingDistance,
             float minDistance,
             AudioRolloffMode rolloff,
-            float dopplerLevel)
+            float dopplerLevel,
+            AudioMixerGroup mixerGroup,
+            float volume,
+            float spatialBlend,
+            float reverbZoneMix)
         {
             float maxDistance = cullingDistance > 0f ? cullingDistance : 0f;
             float min = minDistance > 0f ? minDistance : 0f;
@@ -208,13 +216,23 @@ namespace MadeYellow.WAVES.AudioVisualEffects
                 min = maxDistance;
 
             source.transform.position = position;
-            source.spatialBlend = 1f;
+            source.outputAudioMixerGroup = mixerGroup;
+            source.volume = Unit(volume);
+            source.spatialBlend = Unit(spatialBlend);
+            source.reverbZoneMix = Unit(reverbZoneMix);
             source.dopplerLevel = dopplerLevel > 0f ? dopplerLevel : 0f;
             source.rolloffMode = rolloff;
             source.minDistance = min;
             source.maxDistance = maxDistance;
             if (source.resource != resource)
                 source.resource = resource;
+        }
+
+        static float Unit(float value)
+        {
+            if (value < 0f)
+                return 0f;
+            return value > 1f ? 1f : value;
         }
 
     }

@@ -33,6 +33,18 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
         /// <summary>Doppler strength of the voice. Zero keeps a moved source from pitching.</summary>
         public readonly float DopplerLevel;
 
+        /// <summary>Mixer group for this sound. Null plays straight to the listener.</summary>
+        public readonly AudioMixerGroup MixerGroup;
+
+        /// <summary>Linear volume, from 0 to 1.</summary>
+        public readonly float Volume;
+
+        /// <summary>0 plays in 2D. 1 plays in 3D at the foot.</summary>
+        public readonly float SpatialBlend;
+
+        /// <summary>How much of this sound is sent to reverb zones, from 0 to 1.</summary>
+        public readonly float ReverbZoneMix;
+
         /// <summary>True when a particle system or a graph was found.</summary>
         public readonly bool HasVisual;
 
@@ -53,6 +65,10 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             float minDistance,
             AudioRolloffMode rolloff,
             float dopplerLevel,
+            AudioMixerGroup mixerGroup,
+            float volume,
+            float spatialBlend,
+            float reverbZoneMix,
             bool hasVisual,
             ParticleSystem particles,
             VisualEffectAsset graph,
@@ -64,6 +80,10 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             MinDistance = minDistance;
             Rolloff = rolloff;
             DopplerLevel = dopplerLevel;
+            MixerGroup = mixerGroup;
+            Volume = volume;
+            SpatialBlend = spatialBlend;
+            ReverbZoneMix = reverbZoneMix;
             HasVisual = hasVisual;
             Particles = particles;
             Graph = graph;
@@ -115,6 +135,9 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
         /// <summary>Previous flat list. Moved into <see cref="_cells"/> on load.</summary>
         [SerializeField, HideInInspector] List<LegacyBinding> _bindings = new List<LegacyBinding>();
 
+        /// <summary>1 after older per-step distances are kept as overrides.</summary>
+        [SerializeField, HideInInspector] int _settingsVersion;
+
         Dictionary<CellKey, int> _index;
         WAVES _waves;
         bool _listening;
@@ -123,7 +146,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
 
         void OnEnable()
         {
-            if (MigrateLegacyBindings())
+            if (MigrateLegacyBindings() | MigratePlaybackSettings())
                 _migrationDirty = true;
             _index = null;
         }
@@ -134,7 +157,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                 return;
 
             _validating = true;
-            if (MigrateLegacyBindings())
+            if (MigrateLegacyBindings() | MigratePlaybackSettings())
                 _migrationDirty = true;
             EnsurePayloads();
             Deduplicate();
@@ -189,6 +212,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
 
         /// <summary>
         /// Fills <paramref name="effect"/> from the first audio block and the first visual block in fallback order.
+        /// Playback settings come from that audio block when it overrides them, otherwise from its group's common settings.
         /// False when both are missing.
         /// </summary>
         public bool TryResolve(
@@ -208,6 +232,10 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             float min = 0f;
             AudioRolloffMode rolloff = AudioRolloffMode.Logarithmic;
             float doppler = 0f;
+            AudioMixerGroup mixer = null;
+            float volume = 1f;
+            float spatialBlend = 1f;
+            float reverbZoneMix = 1f;
             bool hasVisual = false;
             ParticleSystem particles = null;
             VisualEffectAsset graph = null;
@@ -234,10 +262,15 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                     {
                         hasAudio = true;
                         audio = slot.Audio;
-                        audible = slot.AudibleDistance;
-                        min = slot.MinDistance;
-                        rolloff = slot.Rolloff;
-                        doppler = slot.DopplerLevel;
+                        bool custom = slot.OverrideSettings;
+                        audible = custom ? slot.AudibleDistance : data.AudibleDistance;
+                        min = custom ? slot.MinDistance : data.MinDistance;
+                        rolloff = custom ? slot.Rolloff : data.Rolloff;
+                        doppler = custom ? slot.DopplerLevel : data.DopplerLevel;
+                        mixer = custom ? slot.MixerGroup : data.MixerGroup;
+                        volume = custom ? slot.Volume : data.Volume;
+                        spatialBlend = custom ? slot.SpatialBlend : data.SpatialBlend;
+                        reverbZoneMix = custom ? slot.ReverbZoneMix : data.ReverbZoneMix;
                     }
 
                     if (!hasVisual && (slot.Particles != null || slot.Graph != null))
@@ -257,6 +290,10 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                 min,
                 rolloff,
                 doppler,
+                mixer,
+                volume,
+                spatialBlend,
+                reverbZoneMix,
                 hasVisual,
                 particles,
                 graph,
@@ -276,7 +313,12 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             float dopplerLevel,
             ParticleSystem particles,
             VisualEffectAsset graph,
-            float visibleDistance)
+            float visibleDistance,
+            bool overrideSettings = false,
+            AudioMixerGroup mixerGroup = null,
+            float volume = 1f,
+            float spatialBlend = 1f,
+            float reverbZoneMix = 1f)
         {
             bool empty = audio == null && particles == null && graph == null;
             int cellIndex = FindCell(surface, actor);
@@ -303,10 +345,44 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                     dopplerLevel,
                     particles,
                     graph,
-                    visibleDistance);
+                    visibleDistance,
+                    overrideSettings,
+                    mixerGroup,
+                    volume,
+                    spatialBlend,
+                    reverbZoneMix);
             }
 
             _index = null;
+        }
+
+        /// <summary>Playback used when a step in this group does not override its own settings.</summary>
+        internal void SetCommonAudio(
+            SurfaceTypeDefinition surface,
+            ActorProfile actor,
+            AudioMixerGroup mixerGroup,
+            float volume,
+            float spatialBlend,
+            float reverbZoneMix,
+            float audibleDistance,
+            float minDistance,
+            AudioRolloffMode rolloff,
+            float dopplerLevel)
+        {
+            int cellIndex = FindCell(surface, actor);
+            if (cellIndex < 0)
+                return;
+
+            _cells[cellIndex].EnsureData(new FootstepCell());
+            _cells[cellIndex].Data.SetCommon(
+                mixerGroup,
+                volume,
+                spatialBlend,
+                reverbZoneMix,
+                audibleDistance,
+                minDistance,
+                rolloff,
+                dopplerLevel);
         }
 
         /// <summary>Creates an enabled group with no steps when that pair is missing.</summary>
@@ -355,7 +431,11 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                     effect.MinDistance,
                     effect.Rolloff,
                     effect.DopplerLevel,
-                    effect.Audio);
+                    effect.Audio,
+                    effect.MixerGroup,
+                    effect.Volume,
+                    effect.SpatialBlend,
+                    effect.ReverbZoneMix);
             }
 
             if (!effect.HasVisual || waves.Visual == null)
@@ -518,6 +598,39 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             return true;
         }
 
+        /// <summary>
+        /// Older assets stored distance and rolloff on every step. Those values stay in use by turning override on.
+        /// Steps that already match the common defaults keep sharing the group settings.
+        /// </summary>
+        internal bool MigratePlaybackSettings()
+        {
+            if (_settingsVersion >= 1)
+                return false;
+
+            if (_cells != null)
+            {
+                for (int i = 0; i < _cells.Count; i++)
+                {
+                    ModuleCell<FootstepCell> cell = _cells[i];
+                    if (cell == null)
+                        continue;
+
+                    cell.EnsureData(new FootstepCell());
+                    cell.Data.PromoteCustomPlayback();
+                }
+            }
+
+            _settingsVersion = 1;
+            return true;
+        }
+
+        static float Unit(float value)
+        {
+            if (value < 0f)
+                return 0f;
+            return value > 1f ? 1f : value;
+        }
+
         void Deduplicate()
         {
             if (_cells == null)
@@ -559,8 +672,57 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
         internal sealed class FootstepCell
         {
             [SerializeField] List<StepSlot> _steps = new List<StepSlot>();
+            [SerializeField] AudioMixerGroup _mixerGroup;
+            [SerializeField] float _volume = 1f;
+            [SerializeField] float _spatialBlend = 1f;
+            [SerializeField] float _reverbZoneMix = 1f;
+            [SerializeField] float _audibleDistance = 15f;
+            [SerializeField] float _minDistance = 1f;
+            [SerializeField] AudioRolloffMode _rolloff = AudioRolloffMode.Logarithmic;
+            [SerializeField] float _dopplerLevel;
 
             public int StepCount => _steps != null ? _steps.Count : 0;
+            public AudioMixerGroup MixerGroup => _mixerGroup;
+            public float Volume => _volume;
+            public float SpatialBlend => _spatialBlend;
+            public float ReverbZoneMix => _reverbZoneMix;
+            public float AudibleDistance => _audibleDistance;
+            public float MinDistance => _minDistance;
+            public AudioRolloffMode Rolloff => _rolloff;
+            public float DopplerLevel => _dopplerLevel;
+
+            public void SetCommon(
+                AudioMixerGroup mixerGroup,
+                float volume,
+                float spatialBlend,
+                float reverbZoneMix,
+                float audibleDistance,
+                float minDistance,
+                AudioRolloffMode rolloff,
+                float dopplerLevel)
+            {
+                _mixerGroup = mixerGroup;
+                _volume = Unit(volume);
+                _spatialBlend = Unit(spatialBlend);
+                _reverbZoneMix = Unit(reverbZoneMix);
+                _audibleDistance = audibleDistance < 0f ? 0f : audibleDistance;
+                _minDistance = minDistance < 0f ? 0f : minDistance;
+                _rolloff = rolloff;
+                _dopplerLevel = dopplerLevel < 0f ? 0f : dopplerLevel;
+            }
+
+            public void PromoteCustomPlayback()
+            {
+                if (_steps == null)
+                    return;
+
+                for (int i = 0; i < _steps.Count; i++)
+                {
+                    StepSlot slot = _steps[i];
+                    if (slot != null)
+                        slot.PromoteCustomPlayback();
+                }
+            }
 
             public StepSlot FindStep(EntityId stepId)
             {
@@ -599,7 +761,12 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                 float dopplerLevel,
                 ParticleSystem particles,
                 VisualEffectAsset graph,
-                float visibleDistance)
+                float visibleDistance,
+                bool overrideSettings = false,
+                AudioMixerGroup mixerGroup = null,
+                float volume = 1f,
+                float spatialBlend = 1f,
+                float reverbZoneMix = 1f)
             {
                 if (_steps == null)
                     _steps = new List<StepSlot>();
@@ -609,13 +776,41 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                     StepSlot slot = _steps[i];
                     if (slot != null && slot.Step == step)
                     {
-                        slot.Set(step, audio, audibleDistance, minDistance, rolloff, dopplerLevel, particles, graph, visibleDistance);
+                        slot.Set(
+                            step,
+                            audio,
+                            audibleDistance,
+                            minDistance,
+                            rolloff,
+                            dopplerLevel,
+                            particles,
+                            graph,
+                            visibleDistance,
+                            overrideSettings,
+                            mixerGroup,
+                            volume,
+                            spatialBlend,
+                            reverbZoneMix);
                         return;
                     }
                 }
 
                 var created = new StepSlot();
-                created.Set(step, audio, audibleDistance, minDistance, rolloff, dopplerLevel, particles, graph, visibleDistance);
+                created.Set(
+                    step,
+                    audio,
+                    audibleDistance,
+                    minDistance,
+                    rolloff,
+                    dopplerLevel,
+                    particles,
+                    graph,
+                    visibleDistance,
+                    overrideSettings,
+                    mixerGroup,
+                    volume,
+                    spatialBlend,
+                    reverbZoneMix);
                 _steps.Add(created);
             }
 
@@ -659,6 +854,11 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             [SerializeField] float _minDistance = 1f;
             [SerializeField] AudioRolloffMode _rolloff = AudioRolloffMode.Logarithmic;
             [SerializeField] float _dopplerLevel;
+            [SerializeField] bool _overrideSettings;
+            [SerializeField] AudioMixerGroup _mixerGroup;
+            [SerializeField] float _volume = 1f;
+            [SerializeField] float _spatialBlend = 1f;
+            [SerializeField] float _reverbZoneMix = 1f;
             [SerializeField] ParticleSystem _particles;
             [SerializeField] VisualEffectAsset _graph;
             [SerializeField] float _visibleDistance = 20f;
@@ -669,6 +869,11 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             public float MinDistance => _minDistance;
             public AudioRolloffMode Rolloff => _rolloff;
             public float DopplerLevel => _dopplerLevel;
+            public bool OverrideSettings => _overrideSettings;
+            public AudioMixerGroup MixerGroup => _mixerGroup;
+            public float Volume => _volume;
+            public float SpatialBlend => _spatialBlend;
+            public float ReverbZoneMix => _reverbZoneMix;
             public ParticleSystem Particles => _particles;
             public VisualEffectAsset Graph => _graph;
             public float VisibleDistance => _visibleDistance;
@@ -682,7 +887,12 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                 float dopplerLevel,
                 ParticleSystem particles,
                 VisualEffectAsset graph,
-                float visibleDistance)
+                float visibleDistance,
+                bool overrideSettings = false,
+                AudioMixerGroup mixerGroup = null,
+                float volume = 1f,
+                float spatialBlend = 1f,
+                float reverbZoneMix = 1f)
             {
                 _step = step;
                 _audio = audio;
@@ -690,9 +900,27 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
                 _minDistance = minDistance < 0f ? 0f : minDistance;
                 _rolloff = rolloff;
                 _dopplerLevel = dopplerLevel < 0f ? 0f : dopplerLevel;
+                _overrideSettings = overrideSettings;
+                _mixerGroup = mixerGroup;
+                _volume = Unit(volume);
+                _spatialBlend = Unit(spatialBlend);
+                _reverbZoneMix = Unit(reverbZoneMix);
                 _particles = particles;
                 _graph = graph;
                 _visibleDistance = visibleDistance < 0f ? 0f : visibleDistance;
+            }
+
+            /// <summary>Keeps a pre-existing custom distance or rolloff by switching this step to its own settings.</summary>
+            public void PromoteCustomPlayback()
+            {
+                if (_overrideSettings)
+                    return;
+
+                if (!Mathf.Approximately(_audibleDistance, 15f)
+                    || !Mathf.Approximately(_minDistance, 1f)
+                    || _rolloff != AudioRolloffMode.Logarithmic
+                    || !Mathf.Approximately(_dopplerLevel, 0f))
+                    _overrideSettings = true;
             }
         }
 

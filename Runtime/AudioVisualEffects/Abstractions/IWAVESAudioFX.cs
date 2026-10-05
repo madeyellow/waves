@@ -9,6 +9,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Abstractions
     {
         /// <summary>
         /// Plays <paramref name="resource"/> at <paramref name="position"/> when the listener is inside <paramref name="cullingDistance"/>.
+        /// Mixer, volume, spatial blend, and reverb mix are applied to the voice that plays it.
         /// A repeat of the same resource inside the debounce window is ignored.
         /// </summary>
         void Play(
@@ -19,6 +20,10 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Abstractions
             float minDistance,
             AudioRolloffMode rolloff,
             float dopplerLevel,
-            AudioResource resource);
+            AudioResource resource,
+            AudioMixerGroup mixerGroup,
+            float volume,
+            float spatialBlend,
+            float reverbZoneMix);
     }
 }
