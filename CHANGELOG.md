@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.3] - 2026-10-05
+
+### Added
+
+- A footstep effect can route its sound through an Audio Mixer Group and set Volume, Spatial Blend, and Reverb Zone Mix. Those values are applied to the AudioSource that plays the step. Volume, spatial blend, and reverb mix run from 0 to 1. Spatial blend is 2D at 0 and 3D at 1. A new effect starts at full volume, fully 3D, and full reverb mix.
+
+- Each actor and surface group has General Effects Settings for that playback, including audible distance, minimum distance, rolloff, and doppler. A footstep type uses those settings unless Override settings is turned on for that type.
+
+- The step list ends with Any, marked Fallback. If a footstep type has no audio of its own, or no visual of its own, the missing part is taken from Any in the same group. A part that the type does set stays its own.
+
+- Footstep types are opened from a gear on the Footstep type effects header. Help icons on that header, on each footstep type, and on Any explain which settings apply.
+
+### Changed
+
+- An effect saved before these settings existed keeps a custom audible distance, minimum distance, rolloff, or doppler. That step is switched to Override settings so it does not fall back to the shared defaults.
+
+- Package links now point at the waves repository.
+
 ## [0.1.2] - 2026-10-04
 
 ### Changed

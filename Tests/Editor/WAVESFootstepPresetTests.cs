@@ -193,6 +193,23 @@ namespace MadeYellow.WAVES.Tests.Editor
         }
 
         [Test]
+        public void TryResolve_UsesAnyStepWhenTheTypeHasNoEffect()
+        {
+            _preset.SetBinding(
+                _surface, _actor, null,
+                _fallbackClip, 12f, 1f, AudioRolloffMode.Linear, 0f,
+                null, null, 8f,
+                true);
+
+            bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
+
+            Assert.IsTrue(found);
+            Assert.AreSame(_fallbackClip, effect.Audio);
+            Assert.AreEqual(12f, effect.AudibleDistance);
+            Assert.AreEqual(AudioRolloffMode.Linear, effect.Rolloff);
+        }
+
+        [Test]
         public void TryResolve_UsesTheSupplyingGroupsCommonPlayback()
         {
             _preset.SetBinding(

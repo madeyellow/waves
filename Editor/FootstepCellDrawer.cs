@@ -18,16 +18,26 @@ namespace MadeYellow.WAVES.Editor
         const float StatusIconGap = 3f;
         const float StatusIconPad = 4f;
         const float StatusIconIdleAlpha = 0.33f;
+        const float HelpIconSize = 13f;
+        const float HelpIconGap = 4f;
+        const float HelpIconAlpha = 0.55f;
+        const string StepEffectsHelp = "Effect settings for this footstep type.";
+        const string AnyEffectsHelp = "Fallback effects. If a footstep type has no effects of its own, these are used.";
+        const string GeneralEffectsHelp = "Main effect settings. If Override settings is off for a footstep type, these are used.";
 
         static GUIStyle _lightLabel;
         static GUIStyle _darkLabel;
         static GUIStyle _inkLabel;
         static bool _inkPro;
+        static GUIStyle _fallbackCaption;
+        static bool _fallbackCaptionPro;
         static int _labelPaletteRevision = -1;
         static Texture _audioStatusIcon;
         static Texture _visualStatusIcon;
         static Texture _gearIcon;
         static bool _gearPro;
+        static Texture _helpIcon;
+        static bool _helpPro;
         static Texture2D _stepContentTexture;
         static GUIStyle _stepContentStyle;
         static bool _stepPanelPro;
@@ -54,12 +64,13 @@ namespace MadeYellow.WAVES.Editor
                 if (step == null)
                     continue;
 
-                DrawStep(steps, scope, step.name, step, false);
+                DrawStep(steps, scope, step.name, step, false, null, StepEffectsHelp);
             }
 
+            DrawStep(steps, scope, "Any", null, false, "(Fallback)", AnyEffectsHelp);
             EditorGUILayout.Space(8f);
             EnsureStatusIcons();
-            DrawEffectGroup("Common effects settings");
+            DrawEffectGroup("General Effects Settings", GeneralEffectsHelp);
             EditorGUI.indentLevel++;
             DrawEffectGroup("AudioFX", _audioStatusIcon, true);
             EditorGUI.indentLevel++;
@@ -102,7 +113,9 @@ namespace MadeYellow.WAVES.Editor
             string scope,
             string title,
             FootstepType step,
-            bool openByDefault)
+            bool openByDefault,
+            string caption = null,
+            string help = null)
         {
             string stepId = step != null ? step.GetEntityId().ToString() : EntityId.None.ToString();
             string key = scope + ".t." + stepId;
@@ -114,7 +127,7 @@ namespace MadeYellow.WAVES.Editor
                 element.FindPropertyRelative("_particles").objectReferenceValue != null ||
                 element.FindPropertyRelative("_graph").objectReferenceValue != null);
             Texture icon = step != null ? step.icon : null;
-            if (!DrawFoldout(key, title, StepHeaderColor(), openByDefault, icon, StatusIconReserve, out Rect header))
+            if (!DrawFoldout(key, title, StepHeaderColor(), openByDefault, icon, StatusIconReserve, caption, help, out Rect header))
             {
                 DrawStatusIcons(header, hasAudio, hasVisual);
                 return;
@@ -483,12 +496,12 @@ namespace MadeYellow.WAVES.Editor
             return value > 1f ? 1f : value;
         }
 
-        static void DrawEffectGroup(string title)
+        static void DrawEffectGroup(string title, string help = null)
         {
-            DrawEffectGroup(title, null, true);
+            DrawEffectGroup(title, null, true, help);
         }
 
-        static void DrawEffectGroup(string title, Texture icon, bool active)
+        static void DrawEffectGroup(string title, Texture icon, bool active, string help = null)
         {
             EditorGUILayout.Space(6f);
             Rect row = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight + 2f, GUIStyle.none);
@@ -515,10 +528,21 @@ namespace MadeYellow.WAVES.Editor
                 labelX += StatusIconSize + StatusIconGap;
             }
 
-            EditorGUI.LabelField(
-                new Rect(labelX, row.y, Mathf.Max(0f, row.xMax - labelX), row.height),
-                title,
-                EditorStyles.boldLabel);
+            float titleRoom = Mathf.Max(0f, row.xMax - labelX - 6f);
+            if (!string.IsNullOrEmpty(help))
+                titleRoom = Mathf.Max(0f, titleRoom - HelpIconSize - HelpIconGap);
+            float titleWidth = Mathf.Min(EditorStyles.boldLabel.CalcSize(new GUIContent(title)).x, titleRoom);
+            GUI.Label(new Rect(labelX, row.y, titleWidth, row.height), title, EditorStyles.boldLabel);
+            if (string.IsNullOrEmpty(help))
+                return;
+
+            DrawHelp(
+                new Rect(
+                    labelX + titleWidth + HelpIconGap,
+                    row.y + (row.height - HelpIconSize) * 0.5f,
+                    HelpIconSize,
+                    HelpIconSize),
+                help);
         }
 
         static GUIStyle NoteLabel()
@@ -543,6 +567,8 @@ namespace MadeYellow.WAVES.Editor
             bool openByDefault,
             Texture icon,
             float rightReserve,
+            string caption,
+            string help,
             out Rect row)
         {
             string key = "MadeYellow.WAVES.Browser.Step." + id;
@@ -570,8 +596,32 @@ namespace MadeYellow.WAVES.Editor
                     x += FoldoutIconSize + 4f;
                 }
 
-                float labelWidth = Mathf.Max(0f, row.xMax - x - rightReserve);
-                GUI.Label(new Rect(x, row.y, labelWidth, row.height), title, style);
+                float ceiling = row.xMax - rightReserve;
+                bool hasHelp = !string.IsNullOrEmpty(help);
+                float reserved = hasHelp ? HelpIconSize + HelpIconGap : 0f;
+                float titleWidth = Mathf.Min(style.CalcSize(new GUIContent(title)).x, Mathf.Max(0f, ceiling - x - reserved));
+                GUI.Label(new Rect(x, row.y, titleWidth, row.height), title, style);
+                float cursor = x + titleWidth;
+                if (!string.IsNullOrEmpty(caption))
+                {
+                    float captionX = cursor + 6f;
+                    float captionWidth = Mathf.Min(
+                        FallbackCaption().CalcSize(new GUIContent(caption)).x,
+                        Mathf.Max(0f, ceiling - captionX - reserved));
+                    GUI.Label(new Rect(captionX, row.y, captionWidth, row.height), caption, FallbackCaption());
+                    cursor = captionX + captionWidth;
+                }
+
+                if (hasHelp)
+                {
+                    DrawHelp(
+                        new Rect(
+                            cursor + HelpIconGap,
+                            row.y + (row.height - HelpIconSize) * 0.5f,
+                            HelpIconSize,
+                            HelpIconSize),
+                        help);
+                }
             }
 
             return next;
@@ -626,6 +676,35 @@ namespace MadeYellow.WAVES.Editor
             if (_gearIcon == null)
                 _gearIcon = EditorGUIUtility.IconContent("_Popup").image;
             return _gearIcon;
+        }
+
+        static void DrawHelp(Rect rect, string tooltip)
+        {
+            Texture icon = HelpIcon();
+            if (icon == null)
+                return;
+
+            Color previous = GUI.color;
+            Color tint = GUI.color;
+            tint.a *= HelpIconAlpha;
+            GUI.color = tint;
+            GUI.Label(rect, new GUIContent(icon, tooltip), GUIStyle.none);
+            GUI.color = previous;
+        }
+
+        static Texture HelpIcon()
+        {
+            bool pro = EditorGUIUtility.isProSkin;
+            if (_helpIcon != null && _helpPro == pro)
+                return _helpIcon;
+
+            _helpPro = pro;
+            string primary = pro ? "d__Help" : "_Help";
+            string fallback = pro ? "_Help" : "d__Help";
+            _helpIcon = EditorGUIUtility.IconContent(primary).image;
+            if (_helpIcon == null)
+                _helpIcon = EditorGUIUtility.IconContent(fallback).image;
+            return _helpIcon;
         }
 
         static Color StepHeaderColor()
@@ -701,6 +780,26 @@ namespace MadeYellow.WAVES.Editor
             Color ink = WAVESChrome.Ink;
             _inkLabel.normal.textColor = ink;
             _inkLabel.hover.textColor = ink;
+        }
+
+        static GUIStyle FallbackCaption()
+        {
+            bool pro = EditorGUIUtility.isProSkin;
+            if (_fallbackCaption != null && _fallbackCaptionPro == pro)
+                return _fallbackCaption;
+
+            _fallbackCaptionPro = pro;
+            _fallbackCaption = new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                clipping = TextClipping.Clip
+            };
+            Color muted = WAVESChrome.Muted;
+            _fallbackCaption.normal.textColor = muted;
+            _fallbackCaption.hover.textColor = muted;
+            _fallbackCaption.active.textColor = muted;
+            _fallbackCaption.focused.textColor = muted;
+            return _fallbackCaption;
         }
     }
 }
