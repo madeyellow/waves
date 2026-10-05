@@ -36,7 +36,15 @@ namespace MadeYellow.WAVES.Editor
             float start = 0f;
             float weight = 0f;
 
-            for (int i = 0; i < keys.Length; i++)
+            // The last key repeats the first value so Loop Pose does not ramp the
+            // curve. It is the loop point, not a second step.
+            int keyCount = keys.Length;
+            if (keyCount >= 3
+                && Mathf.Abs(keys[keyCount - 1].value - keys[0].value) <= SilentEpsilon
+                && Mathf.Abs(keys[keyCount - 2].value - keys[keyCount - 1].value) > SilentEpsilon)
+                keyCount--;
+
+            for (int i = 0; i < keyCount; i++)
             {
                 float time = keys[i].time * scale;
                 float value = keys[i].value;
@@ -108,7 +116,12 @@ namespace MadeYellow.WAVES.Editor
             if (index < 0)
                 return false;
 
-            clips[index].curves = Merge(clips[index].curves, tracks, clipLength, frameRate);
+            clips[index].curves = Merge(
+                clips[index].curves,
+                tracks,
+                clipLength,
+                frameRate,
+                clips[index].loopPose);
             importer.clipAnimations = clips;
             return true;
         }
@@ -117,7 +130,8 @@ namespace MadeYellow.WAVES.Editor
             ClipAnimationInfoCurve[] existing,
             IReadOnlyList<FootstepTrackState> tracks,
             float clipLength,
-            float frameRate)
+            float frameRate,
+            bool loopPose = false)
         {
             var owned = new Dictionary<string, FootstepTrackState>();
             if (tracks != null)
@@ -149,7 +163,7 @@ namespace MadeYellow.WAVES.Editor
                         continue;
                     }
 
-                    merged.Add(BuildInfo(curve.name, owned[curve.name], clipLength, frameRate));
+                    merged.Add(BuildInfo(curve.name, owned[curve.name], clipLength, frameRate, loopPose));
                     written.Add(curve.name);
                 }
             }
@@ -166,7 +180,7 @@ namespace MadeYellow.WAVES.Editor
                     if (string.IsNullOrEmpty(curveName) || written.Contains(curveName) || owned[curveName] != track)
                         continue;
 
-                    merged.Add(BuildInfo(curveName, track, clipLength, frameRate));
+                    merged.Add(BuildInfo(curveName, track, clipLength, frameRate, loopPose));
                     written.Add(curveName);
                 }
             }
@@ -177,7 +191,8 @@ namespace MadeYellow.WAVES.Editor
         public static AnimationCurve BuildCurve(
             float frameRate,
             float clipLength,
-            IReadOnlyList<FootstepMarker> steps)
+            IReadOnlyList<FootstepMarker> steps,
+            bool loopPose = false)
         {
             float epsilon = FootstepEditMath.MinDuration(frameRate);
             var ordered = new List<FootstepMarker>();
@@ -237,6 +252,23 @@ namespace MadeYellow.WAVES.Editor
             if (normalize)
                 FitAndNormalize(keys, clipLength);
 
+            // Loop Pose spreads the gap between the first and last values across
+            // the clip. A step on the first frame makes that gap the whole step
+            // weight, so the animator never holds the plateau and never returns
+            // to silence. The last key is the same instant as time 0 on a loop.
+            // Copying the first value there keeps the segment before it and
+            // removes the gap. Clips without Loop Pose keep a silent end so a
+            // one-shot does not hold the step after it finishes.
+            if (loopPose && keys.Count >= 2)
+            {
+                Keyframe end = keys[keys.Count - 1];
+                if (Mathf.Abs(end.value - keys[0].value) > SilentEpsilon)
+                {
+                    end.value = keys[0].value;
+                    keys[keys.Count - 1] = end;
+                }
+            }
+
             var curve = new AnimationCurve(keys.ToArray());
             if (normalize)
             {
@@ -281,12 +313,13 @@ namespace MadeYellow.WAVES.Editor
             string curveName,
             FootstepTrackState track,
             float clipLength,
-            float frameRate)
+            float frameRate,
+            bool loopPose)
         {
             return new ClipAnimationInfoCurve
             {
                 name = curveName,
-                curve = BuildCurve(frameRate, clipLength, track != null ? track.steps : null)
+                curve = BuildCurve(frameRate, clipLength, track != null ? track.steps : null, loopPose)
             };
         }
 

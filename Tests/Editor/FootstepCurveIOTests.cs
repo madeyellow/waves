@@ -207,6 +207,43 @@ namespace MadeYellow.WAVES.Tests.Editor
         }
 
         [Test]
+        public void BuildCurve_StepAtClipStart_MatchesEndpoints_AndReadsBack()
+        {
+            var run = ScriptableObject.CreateInstance<FootstepType>();
+            run.weight = 3f;
+            run.name = "Run";
+
+            try
+            {
+                var steps = new List<FootstepMarker>
+                {
+                    new FootstepMarker { start = 0f, end = 0.25f, type = run, weight = run.weight }
+                };
+
+                AnimationCurve held = FootstepCurveIO.BuildCurve(60f, 1f, steps);
+                Assert.That(held.keys[held.length - 1].value, Is.EqualTo(0f).Within(0.0001f));
+
+                AnimationCurve curve = FootstepCurveIO.BuildCurve(60f, 1f, steps, loopPose: true);
+
+                Assert.That(curve.keys[0].value, Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(curve.keys[curve.length - 1].value, Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(curve.Evaluate(0f), Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(curve.Evaluate(0.1f), Is.EqualTo(3f).Within(0.0001f));
+                Assert.That(curve.Evaluate(0.9f), Is.EqualTo(0f).Within(0.0001f));
+
+                List<FootstepMarker> loaded = FootstepCurveIO.ReadCurve(curve, 1f, 60f, new[] { run });
+                Assert.That(loaded, Has.Count.EqualTo(1));
+                Assert.That(loaded[0].start, Is.EqualTo(0f).Within(0.0001f));
+                Assert.That(loaded[0].end, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(loaded[0].type, Is.SameAs(run));
+            }
+            finally
+            {
+                Object.DestroyImmediate(run);
+            }
+        }
+
+        [Test]
         public void ReadCurve_LeavesLegacySecondKeysUntouched()
         {
             var walk = ScriptableObject.CreateInstance<FootstepType>();

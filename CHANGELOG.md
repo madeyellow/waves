@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.4] - 2026-10-05
+
+### Fixed
+
+- A step placed at the start of a clip is detected again when that clip uses Loop Pose. Loop Pose spreads the difference between the first and last curve values across the whole clip. A step on the first frame made that difference the whole step weight, so the animator never held the plateau and never returned to silence. Footstep Reader then raised neither the start nor the finish. Baking now gives the last key the same value as the first. That key is the loop point, not a second step, and the step in the editor stays where it was. Clips without Loop Pose still end in silence, so a one-shot does not hold the step after it finishes. Bake the clip again to rewrite a curve that was saved before this fix.
+
 ## [0.1.3] - 2026-10-05
 
 ### Added
