@@ -412,15 +412,14 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             if (waves == null || waves.Query == null)
                 return;
 
-            RaycastHit hit = step.hit;
-            if (hit.collider == null)
+            if (step.collider == null)
                 return;
 
-            waves.Query.TryGetSurface(in hit, out SurfaceTypeDefinition surface);
+            waves.Query.TryGetSurface(step.collider, step.point, out SurfaceTypeDefinition surface);
             if (!TryResolve(step.actor, surface, step.type, out WAVESResolvedFootstep effect))
                 return;
 
-            Vector3 point = hit.point;
+            Vector3 point = step.point;
             if (effect.HasAudio && waves.Audio != null)
             {
                 waves.Audio.Play(
@@ -441,7 +440,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             if (!effect.HasVisual || waves.Visual == null)
                 return;
 
-            Quaternion rotation = AlignFoot(step.rotation, hit.normal);
+            Quaternion rotation = AlignFoot(step.rotation, step.normal);
             if (effect.Particles != null)
             {
                 waves.Visual.PlayParticles(
@@ -465,7 +464,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             }
         }
 
-        /// <summary>Foot forward flattened to the ground plane, then laid onto the hit normal.</summary>
+        /// <summary>Foot forward flattened to the ground plane, then laid onto the ground normal.</summary>
         static Quaternion AlignFoot(Quaternion foot, Vector3 normal)
         {
             if (normal.sqrMagnitude < 1e-6f)

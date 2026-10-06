@@ -145,7 +145,9 @@ namespace MadeYellow.WAVES.Footsteps
                 actor = _actor,
                 channelHash = step.channelHash,
                 type = step.type,
-                hit = step.hit,
+                collider = step.collider,
+                point = step.point,
+                normal = step.normal,
                 rotation = step.rotation
             });
         }

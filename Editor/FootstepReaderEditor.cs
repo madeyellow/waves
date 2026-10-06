@@ -14,6 +14,7 @@ namespace MadeYellow.WAVES.Editor
         SerializedProperty _useRaycasting;
         SerializedProperty _raycastMask;
         SerializedProperty _raycastOffset;
+        SerializedProperty _surfaceCollider;
         SerializedProperty _onFootstepStarted;
         SerializedProperty _onFootstepFinished;
         SerializedProperty _trackEventHashes;
@@ -44,6 +45,7 @@ namespace MadeYellow.WAVES.Editor
             _useRaycasting = serializedObject.FindProperty("_useRaycasting");
             _raycastMask = serializedObject.FindProperty("_raycastMask");
             _raycastOffset = serializedObject.FindProperty("_raycastOffset");
+            _surfaceCollider = serializedObject.FindProperty("_surfaceCollider");
             _onFootstepStarted = serializedObject.FindProperty("_onFootstepStarted");
             _onFootstepFinished = serializedObject.FindProperty("_onFootstepFinished");
             _trackEventHashes = serializedObject.FindProperty("_trackEventHashes");
@@ -83,7 +85,7 @@ namespace MadeYellow.WAVES.Editor
                     _sampleTiming,
                     new GUIContent(
                         "Update method",
-                        "Update reads curves in Update. Late Update reads them after the Animator has applied the pose. Fixed Update reads them in FixedUpdate. Manual does not read curves on its own; call SampleFootsteps()."));
+                        "Update reads curves in Update. Late Update reads them after the Animator has applied the pose. Manual does not read curves on its own; call SampleFootsteps()."));
             }
 
             EndSection(configuration);
@@ -93,7 +95,7 @@ namespace MadeYellow.WAVES.Editor
             {
                 EditorGUILayout.PropertyField(_useRaycasting, new GUIContent(
                     "Use Raycasting",
-                    "Casts a ray down from the foot during contact and stores the hit on the footstep. Turn this off to skip physics and keep only the foot transform."));
+                    "Casts a ray down from the foot during contact and stores the collider, point, and normal on the footstep. Turn this off to skip physics and use Surface Collider instead."));
                 if (_useRaycasting.boolValue)
                 {
                     EditorGUILayout.PropertyField(_raycastMask, new GUIContent(
@@ -102,6 +104,12 @@ namespace MadeYellow.WAVES.Editor
                     EditorGUILayout.PropertyField(_raycastOffset, new GUIContent(
                         "Raycast Offset",
                         "Meters above the foot where the ray starts. Increase it when the foot is already inside the ground. The ray then travels this distance plus 2 meters downward."));
+                }
+                else
+                {
+                    EditorGUILayout.PropertyField(_surfaceCollider, new GUIContent(
+                        "Surface Collider",
+                        "Ground collider used when raycasting is off. The contact point is the closest point on this collider to the foot, and the normal is up. Leave it empty to publish a step with no collider."));
                 }
             }
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.6] - 2026-10-06
+
+### Added
+
+- Footstep Reader has a Surface Collider, used when raycasting is off. The contact point is the closest point on that collider to the foot, and the normal is up. Every track shares this collider. It is hidden in the inspector while raycasting is on, and ignored in that mode. Leave it empty to publish a step with no collider.
+
+- The footsteps module is documented in Documentation~/footsteps.md, including the Footstep Reader API. The footstep editor page links to it, and the readme links to the package documentation.
+
+### Changed
+
+- A footstep sample no longer carries a RaycastHit. FootstepData and ActorFootstepStarted now have a collider, a world point, and a normal, along with the foot rotation they already had. While raycasting is on, Footstep Reader fills those from the ray. A missed ray leaves the collider empty, uses the foot position, and uses an up normal. WAVES resolves the surface from the collider and the point, plays audio at that point, and aligns visuals to the normal. TryGetSurface(RaycastHit) still works and reads the same two values from the hit.
+
+- Footstep Reader no longer samples curves in Fixed Update. Steps are read in Update, in Late Update after the Animator applies the pose, or when SampleFootsteps is called. A reader saved on Fixed Update moves to Late Update. Manual is unchanged.
+
 ## [0.1.5] - 2026-10-06
 
 ### Added

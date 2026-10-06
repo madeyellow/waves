@@ -21,3 +21,7 @@ Return to Unity and wait until Package Manager finishes resolving.
 
 > [!NOTE]
 > ToDo Describe how to start using WAVES
+
+## Documentation
+
+[Package documentation](Documentation~/index.md)

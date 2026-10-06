@@ -9,3 +9,5 @@ Choose a profile from the dropdown above the track names. Footstep lists every F
 **Bake** writes a float curve for each track into that clip's **Curves** on the model importer, then reimports the model. Other curves on the clip stay as they are. The curve name is the track name. The curve value is the step type's weight while a step is active, and 0 otherwise. Tangents are constant, so each transition is a single key. Opening the clip reads those curves back onto the timeline. Bake is enabled only after an edit. Switching the model or clip with unbaked edits asks whether to bake first.
 
 Undo and redo use Unity's shortcuts (**Edit > Undo** / **Edit > Redo**).
+
+Runtime sampling is described in [Footsteps](footsteps.md).

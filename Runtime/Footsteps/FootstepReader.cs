@@ -17,16 +17,14 @@ namespace MadeYellow.WAVES.Footsteps
     public enum FootstepSampleTiming
     {
         /// <summary>Read curves in Update.</summary>
-        Update,
+        Update = 0,
 
         /// <summary>Read curves in LateUpdate, after the animator has applied the pose.</summary>
-        LateUpdate,
-
-        /// <summary>Read curves in FixedUpdate.</summary>
-        FixedUpdate,
+        LateUpdate = 1,
 
         /// <summary>Do not read curves automatically. Call <see cref="FootstepReader.SampleFootsteps"/>.</summary>
-        Manual
+        /// <remarks>Stored as 3 so assets saved before FixedUpdate was removed stay on Manual.</remarks>
+        Manual = 3
     }
 
     /// <summary>
@@ -59,7 +57,7 @@ namespace MadeYellow.WAVES.Footsteps
 
         /// <summary>Casts a ray down from each foot while it is in contact.</summary>
         [SerializeField]
-        [Tooltip("Casts a ray down from the foot during contact and stores the hit on the footstep. Turn this off to skip physics and keep only the foot transform.")]
+        [Tooltip("Casts a ray down from the foot during contact and stores the collider, point, and normal on the footstep. Turn this off to skip physics and use Surface Collider instead.")]
         bool _useRaycasting = true;
 
         /// <summary>Layers included in the foot raycast.</summary>
@@ -71,6 +69,11 @@ namespace MadeYellow.WAVES.Footsteps
         [SerializeField, Min(0f)]
         [Tooltip("Meters above the foot where the ray starts. Increase it when the foot is already inside the ground. The ray then travels this distance plus 2 meters downward.")]
         float _raycastOffset = 0.1f;
+
+        /// <summary>Ground collider used when raycasting is off.</summary>
+        [SerializeField]
+        [Tooltip("Ground collider used when Use Raycasting is off. The contact point is the closest point on this collider to the foot, and the normal is up. Ignored while raycasting is on.")]
+        Collider _surfaceCollider;
 
         /// <summary>Raised when any track enters the contact phase.</summary>
         [SerializeField] FootstepEvent _onFootstepStarted = new FootstepEvent();
@@ -121,7 +124,7 @@ namespace MadeYellow.WAVES.Footsteps
         }
 
         /// <summary>True when a ray is cast down from the foot during contact.</summary>
-        /// <remarks>Disable this to skip physics. The sample then keeps the foot rotation and an empty hit.</remarks>
+        /// <remarks>Disable this to skip physics. The sample then uses <see cref="SurfaceCollider"/>, or no collider when that field is empty. The foot rotation is always stored.</remarks>
         public bool UseRaycasting
         {
             get => _useRaycasting;
@@ -142,6 +145,14 @@ namespace MadeYellow.WAVES.Footsteps
         {
             get => _raycastOffset;
             set => _raycastOffset = value < 0f ? 0f : value;
+        }
+
+        /// <summary>Ground collider used when <see cref="UseRaycasting"/> is off.</summary>
+        /// <remarks>Ignored while raycasting is on. The contact point is the closest point on this collider to the foot, and the normal is up. Leave this empty to publish a step with no collider.</remarks>
+        public Collider SurfaceCollider
+        {
+            get => _surfaceCollider;
+            set => _surfaceCollider = value;
         }
 
         /// <summary>Raised when any track enters the contact phase.</summary>
@@ -168,6 +179,8 @@ namespace MadeYellow.WAVES.Footsteps
             if (_raycastOffset < 0f)
                 _raycastOffset = 0f;
 
+            MigrateSampleTiming();
+
             BuildTracks();
             if (_profile == null || _animator == null || _animator.runtimeAnimatorController == null)
                 enabled = false;
@@ -175,6 +188,13 @@ namespace MadeYellow.WAVES.Footsteps
 #if UNITY_EDITOR
             EnsureControllerFloatParameters();
 #endif
+        }
+
+        /// <summary>Moves a saved FixedUpdate timing onto Late Update. FixedUpdate used to be stored as 2.</summary>
+        void MigrateSampleTiming()
+        {
+            if ((int)_sampleTiming == 2)
+                _sampleTiming = FootstepSampleTiming.LateUpdate;
         }
 
         /// <summary>Samples curves when <see cref="SampleTiming"/> is <see cref="FootstepSampleTiming.Update"/>.</summary>
@@ -188,13 +208,6 @@ namespace MadeYellow.WAVES.Footsteps
         void LateUpdate()
         {
             if (_sampleTiming == FootstepSampleTiming.LateUpdate)
-                SampleFootsteps();
-        }
-
-        /// <summary>Samples curves when <see cref="SampleTiming"/> is <see cref="FootstepSampleTiming.FixedUpdate"/>.</summary>
-        void FixedUpdate()
-        {
-            if (_sampleTiming == FootstepSampleTiming.FixedUpdate)
                 SampleFootsteps();
         }
 
@@ -374,7 +387,7 @@ namespace MadeYellow.WAVES.Footsteps
         /// <summary>Reads each track curve and opens, updates, or closes its contact.</summary>
         /// <remarks>
         /// Call this when <see cref="SampleTiming"/> is <see cref="FootstepSampleTiming.Manual"/>.
-        /// <see cref="FootstepSampleTiming.Update"/>, <see cref="FootstepSampleTiming.LateUpdate"/>, and <see cref="FootstepSampleTiming.FixedUpdate"/> call it on their own.
+        /// <see cref="FootstepSampleTiming.Update"/> and <see cref="FootstepSampleTiming.LateUpdate"/> call it on their own.
         /// A contact starts after the curve holds near one footstep weight for two samples in a row.
         /// Samples between weights do not open a step or change its type. The start event waits for that second sample.
         /// If the curve goes quiet before then, no event is raised.
@@ -414,15 +427,15 @@ namespace MadeYellow.WAVES.Footsteps
         {
             Transform foot = ResolveFoot(track.Name);
             Quaternion rotation = foot != null ? foot.rotation : Quaternion.identity;
-            RaycastHit hit = default;
-            if (_useRaycasting && foot != null)
-                TryRaycast(foot, out hit);
+            ResolveContact(foot, out Collider collider, out Vector3 point, out Vector3 normal);
 
             var step = new FootstepData
             {
                 channelHash = track.Hash,
                 type = type,
-                hit = hit,
+                collider = collider,
+                point = point,
+                normal = normal,
                 rotation = rotation
             };
             track.Begin(step, weight);
@@ -446,6 +459,37 @@ namespace MadeYellow.WAVES.Footsteps
             FootstepData ended = track.End(ResolveFoot(track.Name));
             _onFootstepFinished?.Invoke(ended);
             track.Events.OnFootstepFinished.Invoke(ended);
+        }
+
+        /// <summary>Fills the ground contact for one sample.</summary>
+        /// <param name="foot">Foot transform. Null leaves the point at the origin.</param>
+        /// <param name="collider">Hit collider, <see cref="SurfaceCollider"/>, or null.</param>
+        /// <param name="point">Hit point, closest point on the surface collider, or the foot position.</param>
+        /// <param name="normal">Hit normal, or up when the sample did not come from a raycast.</param>
+        void ResolveContact(Transform foot, out Collider collider, out Vector3 point, out Vector3 normal)
+        {
+            point = foot != null ? foot.position : Vector3.zero;
+            normal = Vector3.up;
+            collider = null;
+
+            if (_useRaycasting)
+            {
+                if (foot != null && TryRaycast(foot, out RaycastHit hit))
+                {
+                    collider = hit.collider;
+                    point = hit.point;
+                    normal = hit.normal;
+                }
+
+                return;
+            }
+
+            if (_surfaceCollider == null)
+                return;
+
+            collider = _surfaceCollider;
+            if (foot != null)
+                point = _surfaceCollider.ClosestPoint(foot.position);
         }
 
         /// <summary>Casts down from the foot and writes the first solid hit.</summary>
@@ -497,6 +541,8 @@ namespace MadeYellow.WAVES.Footsteps
         {
             if (_raycastOffset < 0f)
                 _raycastOffset = 0f;
+
+            MigrateSampleTiming();
 
             EditorApplication.delayCall -= EnsureControllerFloatParameters;
             EditorApplication.delayCall += EnsureControllerFloatParameters;
@@ -608,14 +654,14 @@ namespace MadeYellow.WAVES.Footsteps
                     continue;
 
                 FootstepData state = track.CurrentValue;
-                bool grounded = state.hit.collider != null;
+                bool grounded = state.collider != null;
                 Transform foot = ResolveFoot(track.Name);
                 Vector3 center = grounded
-                    ? state.hit.point
-                    : foot != null ? foot.position : state.hit.point;
+                    ? state.point
+                    : foot != null ? foot.position : state.point;
 
-                Vector3 normal = _useRaycasting ? state.hit.normal : Vector3.up;
-                Vector3 origin = grounded ? state.hit.point : center;
+                Vector3 normal = state.normal;
+                Vector3 origin = grounded ? state.point : center;
                 Gizmos.color = track.Color;
                 Gizmos.DrawSphere(center, radius);
                 if (normal.sqrMagnitude <= FootstepContactLatch.ContactEpsilon)
