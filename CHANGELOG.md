@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.7] - 2026-10-06
+
+### Changed
+
+- WAVES now requires Event Bus 1.1.0. The dispatcher and the WAVES component accept any bus asset, so an existing Event Bus stays assigned, and a High Pub Low Sub Event Bus assigns as well. Create Event Bus on the dispatcher creates a High Pub Low Sub Event Bus. Publishing on that bus does not allocate. A signal passed to Publish Event must be a struct.
+
 ## [0.1.6] - 2026-10-06
 
 ### Added

@@ -268,9 +268,10 @@ namespace MadeYellow.WAVES.Tests.Editor
                 _stepClip, 7f, 2f, AudioRolloffMode.Linear, 0.5f,
                 null, null, 3f);
 
-            var preset = new UnityEditor.SerializedObject(_preset);
-            preset.FindProperty("_settingsVersion").intValue = 0;
-            preset.ApplyModifiedPropertiesWithoutUndo();
+            // ApplyModifiedProperties runs OnValidate, which migrates before this call can.
+            typeof(WAVESFootstepModule)
+                .GetField("_settingsVersion", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .SetValue(_preset, 0);
 
             Assert.IsTrue(_preset.MigratePlaybackSettings());
 
