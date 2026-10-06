@@ -1,5 +1,4 @@
 using MadeYellow.WAVES.AudioVisualEffects.Modules.DirectionalActionsModule;
-using MadeYellow.WAVES.AudioVisualEffects.Modules.JumpsAndLandsModule;
 using UnityEditor;
 
 namespace MadeYellow.WAVES.Editor
@@ -10,7 +9,6 @@ namespace MadeYellow.WAVES.Editor
     {
         static WAVESPlaceholderModuleEditors()
         {
-            WAVESModuleDrawers.Register(typeof(WAVESJumpLandModule), Draw, false);
             WAVESModuleDrawers.Register(typeof(WAVESDirectionalActionModule), Draw, false);
         }
 

@@ -8,12 +8,11 @@ namespace MadeYellow.WAVES.Footsteps
     /// Accepts commands and publishes signals on the WAVES event bus.
     /// </summary>
     /// <remarks>
-    /// The built-in command publishes each footstep start from the <see cref="FootstepReader"/> on this object.
-    /// The reader is found on this GameObject. It is not assigned in the inspector.
+    /// A <see cref="FootstepReader"/> on this object publishes each footstep start. The reader is optional and is not assigned in the inspector.
+    /// Jump and landing signals are published with the extension methods in <see cref="MadeYellow.WAVES.Jumps.WAVESJumpLand"/>.
     /// A missing bus or actor profile disables the component in <see cref="Start"/>.
     /// Subclasses can add their own commands and publish them with <see cref="PublishEvent{T}"/>.
     /// </remarks>
-    [RequireComponent(typeof(FootstepReader))]
     [DisallowMultipleComponent]
     [AddComponentMenu("MadeYellow/WAVES/WAVES Dispatcher")]
     public class WAVESDispatcher : MonoBehaviour

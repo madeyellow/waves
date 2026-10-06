@@ -1611,6 +1611,27 @@ namespace MadeYellow.WAVES.Editor
             SerializedProperty steps = data.FindPropertyRelative("_steps");
             if (steps != null && steps.isArray)
                 steps.ClearArray();
+
+            SerializedProperty lands = data.FindPropertyRelative("_lands");
+            if (lands != null && lands.isArray)
+                lands.ClearArray();
+
+            SerializedProperty jump = data.FindPropertyRelative("_jump");
+            if (jump == null)
+                return;
+
+            SerializedProperty audio = jump.FindPropertyRelative("_audio");
+            if (audio != null)
+                audio.objectReferenceValue = null;
+            SerializedProperty particles = jump.FindPropertyRelative("_particles");
+            if (particles != null)
+                particles.objectReferenceValue = null;
+            SerializedProperty graph = jump.FindPropertyRelative("_graph");
+            if (graph != null)
+                graph.objectReferenceValue = null;
+            SerializedProperty overrideSettings = jump.FindPropertyRelative("_overrideSettings");
+            if (overrideSettings != null)
+                overrideSettings.boolValue = false;
         }
 
         static int FindCellIndex(SerializedProperty cells, UnityEngine.Object surface, UnityEngine.Object actor)

@@ -10,4 +10,4 @@ Choose a profile from the dropdown above the track names. Footstep lists every F
 
 Undo and redo use Unity's shortcuts (**Edit > Undo** / **Edit > Redo**).
 
-Runtime sampling is described in [Footsteps](footsteps.md).
+Runtime sampling is described in [Footsteps](footsteps.md). Jumps and landings are described in [Jumps and lands](jumps-and-lands.md).

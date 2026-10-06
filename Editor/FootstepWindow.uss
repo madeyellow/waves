@@ -429,13 +429,6 @@
     opacity: 0.45;
 }
 
-.footstep-step-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    margin-right: 4px;
-}
-
 .footstep-step-label {
     flex-grow: 1;
     overflow: hidden;

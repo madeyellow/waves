@@ -1,21 +1,18 @@
 using UnityEngine;
 
-namespace MadeYellow.WAVES.Footsteps
+namespace MadeYellow.WAVES.Jumps
 {
+    /// <summary>A named landing intensity, chosen by the character when it hits the ground.</summary>
     [CreateAssetMenu(
-        fileName = "FootstepType",
-        menuName = "MadeYellow/WAVES/Footstep Type")]
-    /// <summary>A named step style, matched by how close its weight is to the baked curve.</summary>
-    public sealed class FootstepType : ScriptableObject
+        fileName = "FallType",
+        menuName = "MadeYellow/WAVES/Fall Type")]
+    public sealed class ActorFallType : ScriptableObject
     {
-        /// <summary>Curve value this type represents. The closest weight wins.</summary>
-        public float weight = 1f;
-
         /// <summary>Position in lists. Lower values are shown first.</summary>
         public int order;
 
         /// <summary>Orders types by <see cref="order"/>, then by name.</summary>
-        public static int CompareByOrder(FootstepType left, FootstepType right)
+        public static int CompareByOrder(ActorFallType left, ActorFallType right)
         {
             if (ReferenceEquals(left, right))
                 return 0;

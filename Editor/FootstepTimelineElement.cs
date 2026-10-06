@@ -1060,52 +1060,23 @@ namespace MadeYellow.WAVES.Editor
         {
             string typeName = marker.type != null ? marker.type.name : "Step";
             Label label = null;
-            Image icon = null;
             for (int i = 0; i < element.childCount; i++)
             {
                 VisualElement child = element[i];
-                if (label == null && child is Label text && child.ClassListContains("footstep-step-label"))
-                    label = text;
-                else if (icon == null && child is Image image && child.ClassListContains("footstep-step-icon"))
-                    icon = image;
-            }
-
-            if (label != null)
-            {
-                if (label.text != typeName)
-                    label.text = typeName;
-                if (label.tooltip != typeName)
-                    label.tooltip = typeName;
-            }
-
-            Texture texture = marker.type != null ? marker.type.icon : null;
-            if (texture == null)
-            {
-                icon?.RemoveFromHierarchy();
-                return;
-            }
-
-            string stamp = texture.GetEntityId().ToString() + ":" + texture.updateCount;
-            if (icon == null)
-            {
-                icon = new Image
+                if (child is Label text && child.ClassListContains("footstep-step-label"))
                 {
-                    image = texture,
-                    pickingMode = PickingMode.Ignore,
-                    userData = stamp
-                };
-                icon.AddToClassList("footstep-step-icon");
-                element.Insert(0, icon);
-                return;
+                    label = text;
+                    break;
+                }
             }
 
-            if (icon.userData is string stored && stored == stamp)
+            if (label == null)
                 return;
 
-            icon.userData = stamp;
-            if (icon.image == texture)
-                icon.image = null;
-            icon.image = texture;
+            if (label.text != typeName)
+                label.text = typeName;
+            if (label.tooltip != typeName)
+                label.tooltip = typeName;
         }
 
         static List<FootstepType> OrderedTypes(IReadOnlyList<FootstepType> types)

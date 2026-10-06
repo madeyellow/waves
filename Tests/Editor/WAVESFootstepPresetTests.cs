@@ -87,7 +87,8 @@ namespace MadeYellow.WAVES.Tests.Editor
             _preset.SetBinding(
                 _surface, _actor, _step,
                 null, 1f, 1f, AudioRolloffMode.Logarithmic, 0f,
-                particles, null, 6f);
+                particles, null, 6f,
+                overrideVisual: true);
 
             bool found = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
 
@@ -286,6 +287,37 @@ namespace MadeYellow.WAVES.Tests.Editor
             Assert.AreEqual(1f, effect.SpatialBlend);
             Assert.AreEqual(1f, effect.ReverbZoneMix);
             Assert.IsFalse(_preset.MigratePlaybackSettings());
+        }
+
+        [Test]
+        public void TryResolve_UsesTheGroupVisibleDistanceUnlessTheStepOverridesIt()
+        {
+            var particles = new GameObject("burst").AddComponent<ParticleSystem>();
+            _preset.SetBinding(
+                _surface, _actor, _step,
+                null, 1f, 1f, AudioRolloffMode.Logarithmic, 0f,
+                particles, null, 6f);
+            _preset.SetCommonAudio(
+                _surface, _actor,
+                null, 1f, 1f, 1f,
+                15f, 1f, AudioRolloffMode.Logarithmic, 0f,
+                30f);
+
+            bool shared = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep common);
+
+            Assert.IsTrue(shared);
+            Assert.AreEqual(30f, common.VisibleDistance);
+
+            _preset.SetBinding(
+                _surface, _actor, _step,
+                null, 1f, 1f, AudioRolloffMode.Logarithmic, 0f,
+                particles, null, 6f,
+                overrideVisual: true);
+            bool custom = _preset.TryResolve(_actor, _surface, _step, out WAVESResolvedFootstep effect);
+
+            Assert.IsTrue(custom);
+            Assert.AreEqual(6f, effect.VisibleDistance);
+            Object.DestroyImmediate(particles.gameObject);
         }
 
         static void WriteLegacy(

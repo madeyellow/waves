@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.9] - 2026-10-06
+
+### Added
+
+- Jumps & Lands plays a reaction when a character leaves the ground or hits it. The character controller publishes the moment. `PublishJump` and `PublishLand` on WAVES Dispatcher copy the actor profile and the object identity into the signal and send it on the dispatcher's bus. A jump carries the ground collider, the takeoff point, and the normal. A landing carries those and a Fall Type. Create Fall Types from Assets > Create > MadeYellow > WAVES > Fall Type. An empty fall type uses the fallback landing. Nothing is sent when the dispatcher, its bus, or its actor profile is missing. The module plays nothing when the collider is missing.
+
+- In the module browser, each actor and surface group has a Jumping fold and a Landing fold. Landing lists every fall type, then Any. A jump does not use landing effects, and a landing does not use the jump slot. Audio and visual blocks, including Override settings, match the footstep group. How to call the methods is documented in Documentation~/jumps-and-lands.md.
+
+### Changed
+
+- WAVES Dispatcher no longer requires a Footstep Reader. Footsteps still publish when a reader is on the same object. A character that only jumps does not get a reader. Mute Footsteps still mutes footsteps only.
+
+- General Effects Settings include a visible distance for visuals, on footsteps and on jumps and landings. A slot uses that distance unless Override settings is turned on under its visual. Particles and the graph stay on the slot. A visible distance saved before this stays on that slot.
+
+- Footstep types no longer have an icon. The type name is what the module browser and the footstep editor show. Fall types have no icon either.
+
+- The footstep group editor draws its audio and visual blocks through the same controls as jumps and landings. Spatial blend and doppler describe the contact point.
+
 ## [0.1.7] - 2026-10-06
 
 ### Changed

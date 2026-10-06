@@ -1658,15 +1658,6 @@ namespace MadeYellow.WAVES.Editor
 
                     builder.Append(type.GetEntityId().ToString()).Append('\n');
                     builder.Append(type.name).Append('\n');
-                    Texture icon = type.icon;
-                    if (icon == null)
-                    {
-                        builder.Append("0\n");
-                        continue;
-                    }
-
-                    builder.Append(icon.GetEntityId().ToString()).Append('\n');
-                    builder.Append(icon.updateCount).Append('\n');
                 }
             }
 

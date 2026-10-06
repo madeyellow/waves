@@ -38,13 +38,13 @@ namespace MadeYellow.WAVES.Editor
             if (_actor.objectReferenceValue == null)
             {
                 EditorGUILayout.HelpBox(
-                    "An Actor Profile is required. Without it this component disables itself on Start and does not publish footsteps.",
+                    "An Actor Profile is required. Without it this component disables itself on Start and does not publish signals.",
                     MessageType.Warning);
             }
 
             EditorGUILayout.PropertyField(
                 _actor,
-                new GUIContent("Actor Profile", "Actor kind copied into each Actor Footstep Started event. Required."));
+                new GUIContent("Actor Profile", "Actor kind copied into each published signal. Required."));
             if (DrawAssetButton("Create Actor Profile"))
                 CreateProfile();
 

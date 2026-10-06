@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using MadeYellow.WAVES.Actors;
 using MadeYellow.WAVES.Footsteps;
+using MadeYellow.WAVES.Jumps;
 using MadeYellow.WAVES.Surfaces;
 using UnityEditor;
 using UnityEngine;
@@ -15,6 +16,7 @@ namespace MadeYellow.WAVES.Editor
         public static readonly List<SurfaceTypeDefinition> Surfaces = new List<SurfaceTypeDefinition>();
         public static readonly List<ActorProfile> Actors = new List<ActorProfile>();
         public static readonly List<FootstepType> Steps = new List<FootstepType>();
+        public static readonly List<ActorFallType> Falls = new List<ActorFallType>();
 
         public static void Retain()
         {
@@ -40,9 +42,11 @@ namespace MadeYellow.WAVES.Editor
             Load(Surfaces);
             Load(Actors);
             Load(Steps);
+            Load(Falls);
             Surfaces.Sort(CompareSurface);
             Actors.Sort(CompareActor);
             Steps.Sort(FootstepType.CompareByOrder);
+            Falls.Sort(ActorFallType.CompareByOrder);
         }
 
         public static void NotifyChanged()
