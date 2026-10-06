@@ -10,9 +10,9 @@ namespace MadeYellow.WAVES.Footsteps
     {
         /// <summary>Loads the alphabetically first asset whose file name is FootstepEventBus.</summary>
         /// <returns>The bus, or null when the project has none.</returns>
-        public static ScriptableEventBus Find()
+        public static ScriptableEventBase Find()
         {
-            string[] guids = AssetDatabase.FindAssets("FootstepEventBus t:ScriptableEventBus");
+            string[] guids = AssetDatabase.FindAssets("FootstepEventBus t:ScriptableEventBase");
             string bestPath = null;
             for (int i = 0; i < guids.Length; i++)
             {
@@ -31,7 +31,7 @@ namespace MadeYellow.WAVES.Footsteps
             if (bestPath == null)
                 return null;
 
-            return AssetDatabase.LoadAssetAtPath<ScriptableEventBus>(bestPath);
+            return AssetDatabase.LoadAssetAtPath<ScriptableEventBase>(bestPath);
         }
     }
 }

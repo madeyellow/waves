@@ -61,7 +61,7 @@ namespace MadeYellow.WAVES.Editor
             if (string.IsNullOrEmpty(path))
                 return;
 
-            var bus = ScriptableObject.CreateInstance<ScriptableEventBus>();
+            var bus = ScriptableObject.CreateInstance<HighPubLowSubEventBus>();
             AssetDatabase.CreateAsset(bus, path);
             AssetDatabase.SaveAssets();
 

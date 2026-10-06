@@ -15,7 +15,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         /// <summary>Bus the modules subscribe to. Defaults to an asset named FootstepEventBus.</summary>
         [SerializeField]
         [Tooltip("Bus the modules subscribe to. When this component is added, an asset named FootstepEventBus is assigned if the project has one.")]
-        ScriptableEventBus _bus;
+        ScriptableEventBase _bus;
 
         /// <summary>Modules bound while this component is enabled. One asset per module type.</summary>
         [SerializeField]
@@ -28,7 +28,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         public WAVESQuery Query { get; private set; }
 
         /// <summary>Bus the modules subscribe to.</summary>
-        public ScriptableEventBus Bus => _bus;
+        public ScriptableEventBase Bus => _bus;
 
         /// <summary>Audio player on this object. Null when WAVES Audio FX is missing.</summary>
         public IWAVESAudioFX Audio { get; private set; }

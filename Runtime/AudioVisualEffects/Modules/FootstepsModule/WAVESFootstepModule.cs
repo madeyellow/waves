@@ -201,7 +201,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
 
             if (_listening)
             {
-                ScriptableEventBus bus = _waves.Bus;
+                ScriptableEventBase bus = _waves.Bus;
                 if (bus != null)
                     bus.Unsubscribe<ActorFootstepStarted>(OnFootstep);
                 _listening = false;

@@ -21,7 +21,7 @@ namespace MadeYellow.WAVES.Footsteps
         /// <summary>Bus that receives published signals.</summary>
         [SerializeField]
         [Tooltip("Bus that receives published signals. Required. This component disables itself on Start when the bus is empty.")]
-        ScriptableEventBus _bus;
+        ScriptableEventBase _bus;
 
         /// <summary>Actor kind copied into each published footstep.</summary>
         [SerializeField]
@@ -35,7 +35,7 @@ namespace MadeYellow.WAVES.Footsteps
         float _footstepsMutedUntil;
 
         /// <summary>Bus that receives published signals.</summary>
-        public ScriptableEventBus Bus => _bus;
+        public ScriptableEventBase Bus => _bus;
 
         /// <summary>Actor kind copied into each published footstep.</summary>
         public ActorProfile Actor => _actor;
@@ -120,9 +120,9 @@ namespace MadeYellow.WAVES.Footsteps
         }
 
         /// <summary>Publishes <paramref name="eventData"/> on <see cref="Bus"/>.</summary>
-        /// <typeparam name="T">Signal type.</typeparam>
+        /// <typeparam name="T">Signal type. Must be a struct so the bus can publish it without boxing.</typeparam>
         /// <param name="eventData">Signal to publish.</param>
-        public void PublishEvent<T>(T eventData)
+        public void PublishEvent<T>(in T eventData) where T : struct
         {
             _bus.Publish(eventData);
         }
