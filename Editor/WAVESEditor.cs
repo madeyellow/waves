@@ -1,4 +1,3 @@
-using System;
 using MadeYellow.WAVES.AudioVisualEffects.Modules;
 using UnityEditor;
 using UnityEngine;
@@ -20,7 +19,6 @@ namespace MadeYellow.WAVES.Editor
         const float DashGap = 3f;
         const float LinkCircle = 8f;
         const float LinkGap = 28f;
-        static readonly int ModulePickerHint = "WAVES.ModulePicker".GetHashCode();
         static int _paletteRevision = -1;
         static bool _palettePro;
 
@@ -173,12 +171,17 @@ namespace MadeYellow.WAVES.Editor
                 Undo.RecordObject(waves, "Remove WAVES Module");
                 waves.RemoveModuleAt(i);
                 EditorUtility.SetDirty(waves);
+                WAVESBrowserWindow.RepaintOpen();
                 EditorGUI.indentLevel = indent;
                 GUIUtility.ExitGUI();
             }
 
-            GUILayout.Space(6f);
-            DrawDropZone(waves);
+            if (count == 0)
+            {
+                GUILayout.Space(6f);
+                DrawOpenBrowserButton(waves);
+            }
+
             EditorGUI.indentLevel = indent;
         }
 
@@ -205,7 +208,7 @@ namespace MadeYellow.WAVES.Editor
                 RemoveSize);
             bool deleted = DrawRemoveButton(remove, "Remove module");
 
-            string title = module != null ? ModuleTitle(module) : "Missing";
+            string title = WAVESModuleCatalog.Title(module);
             string preset = module != null ? module.name : string.Empty;
             float textWidth = Mathf.Max(0f, remove.x - row.x - RackPad * 2f);
             GUIStyle titleStyle = RackTitleStyle();
@@ -234,7 +237,7 @@ namespace MadeYellow.WAVES.Editor
             if (module != null)
             {
                 var hint = new Rect(row.x, row.y, Mathf.Max(0f, remove.x - row.x), row.height);
-                GUI.Label(hint, new GUIContent(string.Empty, "Click to open preset settings"));
+                GUI.Label(hint, new GUIContent(string.Empty, "Click to edit in WAVES Module Browser"));
             }
 
             Event click = Event.current;
@@ -251,13 +254,11 @@ namespace MadeYellow.WAVES.Editor
             return deleted;
         }
 
-        static void DrawDropZone(AudioVisualEffects.WAVES waves)
+        static void DrawOpenBrowserButton(AudioVisualEffects.WAVES waves)
         {
             Rect zone = EditorGUILayout.GetControlRect(false, DropHeight);
-            int pickerId = GUIUtility.GetControlID(ModulePickerHint, FocusType.Passive);
             Event evt = Event.current;
             bool over = zone.Contains(evt.mousePosition);
-            bool hasModule = DragContainsModule();
             if (evt.type == EventType.Repaint)
             {
                 var inner = new Rect(zone.x + 2f, zone.y + 2f, zone.width - 4f, zone.height - 4f);
@@ -266,68 +267,19 @@ namespace MadeYellow.WAVES.Editor
                     ? WAVESPalette.White(wash)
                     : WAVESPalette.Black(wash);
                 EditorGUI.DrawRect(inner, fill);
-                bool armed = over && hasModule;
                 Color line = EditorGUIUtility.isProSkin
-                    ? WAVESPalette.White(armed ? 0.9f : 0.38f)
-                    : WAVESPalette.Black(armed ? 0.7f : 0.32f);
+                    ? WAVESPalette.White(over ? 0.9f : 0.38f)
+                    : WAVESPalette.Black(over ? 0.7f : 0.32f);
                 DrawDashedFrame(zone, line, 2f);
-                GUI.Label(zone, "Click or Drop module preset here", DropLabelStyle());
+                GUI.Label(zone, "Click to open WAVES Module Browser", DropLabelStyle());
             }
 
             EditorGUIUtility.AddCursorRect(zone, MouseCursor.Link);
-
             if (evt.type == EventType.MouseDown && evt.button == 0 && over)
             {
-                EditorGUIUtility.ShowObjectPicker<WAVESModuleBase>(null, false, "", pickerId);
+                WAVESBrowserWindow.Open(waves, null);
                 evt.Use();
-                return;
             }
-
-            if (evt.type == EventType.ExecuteCommand &&
-                evt.commandName == "ObjectSelectorClosed" &&
-                EditorGUIUtility.GetObjectPickerControlID() == pickerId)
-            {
-                AssignModule(waves, EditorGUIUtility.GetObjectPickerObject() as WAVESModuleBase);
-                evt.Use();
-                return;
-            }
-
-            if (!over || (evt.type != EventType.DragUpdated && evt.type != EventType.DragPerform))
-                return;
-
-            if (!hasModule)
-            {
-                DragAndDrop.visualMode = DragAndDropVisualMode.Rejected;
-                evt.Use();
-                return;
-            }
-
-            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
-            if (evt.type == EventType.DragPerform)
-            {
-                DragAndDrop.AcceptDrag();
-                Undo.RecordObject(waves, "Assign WAVES Module");
-                UnityEngine.Object[] dropped = DragAndDrop.objectReferences;
-                for (int i = 0; i < dropped.Length; i++)
-                {
-                    if (dropped[i] is WAVESModuleBase module)
-                        waves.AssignModule(module);
-                }
-
-                EditorUtility.SetDirty(waves);
-            }
-
-            evt.Use();
-        }
-
-        static void AssignModule(AudioVisualEffects.WAVES waves, WAVESModuleBase module)
-        {
-            if (waves == null || module == null)
-                return;
-
-            Undo.RecordObject(waves, "Assign WAVES Module");
-            waves.AssignModule(module);
-            EditorUtility.SetDirty(waves);
         }
 
         static void DrawLinks(AudioVisualEffects.WAVES waves)
@@ -523,18 +475,6 @@ namespace MadeYellow.WAVES.Editor
             return outside + inside - radius;
         }
 
-        static bool DragContainsModule()
-        {
-            UnityEngine.Object[] dropped = DragAndDrop.objectReferences;
-            for (int i = 0; i < dropped.Length; i++)
-            {
-                if (dropped[i] is WAVESModuleBase)
-                    return true;
-            }
-
-            return false;
-        }
-
         static void DrawDashedFrame(Rect rect, Color color, float thickness)
         {
             DrawDashedHorizontal(rect.x, rect.y, rect.width, thickness, color);
@@ -563,18 +503,6 @@ namespace MadeYellow.WAVES.Editor
                 EditorGUI.DrawRect(new Rect(x, y + cursor, thickness, length), color);
                 cursor += Dash + DashGap;
             }
-        }
-
-        static string ModuleTitle(WAVESModuleBase module)
-        {
-            var named = (WAVESModuleNameAttribute)Attribute.GetCustomAttribute(
-                module.GetType(),
-                typeof(WAVESModuleNameAttribute),
-                false);
-            if (named != null && !string.IsNullOrEmpty(named.Name))
-                return named.Name;
-
-            return module.GetType().Name;
         }
 
         internal static bool DrawRemoveButton(Rect rect, string tooltip)
@@ -652,7 +580,8 @@ namespace MadeYellow.WAVES.Editor
             _dropLabel = new GUIStyle(EditorStyles.miniLabel)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = 10
+                fontSize = 10,
+                wordWrap = true
             };
             Color color = WAVESPalettePreferences.DropLabel;
             _dropLabel.normal.textColor = color;

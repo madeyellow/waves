@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using MadeYellow.WAVES.Actors;
 using MadeYellow.WAVES.AudioVisualEffects.Modules;
 using MadeYellow.WAVES.Surfaces;
@@ -8,12 +10,13 @@ using UnityEngine;
 
 namespace MadeYellow.WAVES.Editor
 {
-    /// <summary>Edits the module presets on a WAVES component.</summary>
+    /// <summary>WAVES Module Browser. Edits the module presets on a WAVES component.</summary>
     public sealed class WAVESBrowserWindow : EditorWindow
     {
         const float Cell = 48f;
-        const float CardWidth = 160f;
-        const float CardHeight = 64f;
+        const float CardWidth = 200f;
+        const float CardHeight = 96f;
+        const string WindowTitle = "WAVES Module Browser";
         const float PresetPopup = 20f;
         const float DetailWidth = 420f;
         const float Border = 3f;
@@ -30,11 +33,10 @@ namespace MadeYellow.WAVES.Editor
         const float StripesAlpha = 0.1f;
         const float CaptionGap = 2f;
         const string StripesPath = "Packages/com.madeyellow.waves/Editor/Backgrounds/stripes-background.png";
-        static readonly int AddPicker = "WAVES.Browser.Add".GetHashCode();
 
         [SerializeField] AudioVisualEffects.WAVES _waves;
         [SerializeField] WAVESModuleBase _loose;
-        [SerializeField] int _moduleIndex;
+        [SerializeField] WAVESModuleBase _selected;
         [SerializeField] bool _actorsAreRows = true;
         [SerializeField] bool _hasSelection;
         [SerializeField] SurfaceTypeDefinition _selectedSurface;
@@ -43,6 +45,7 @@ namespace MadeYellow.WAVES.Editor
         readonly List<AxisEntry> _rows = new List<AxisEntry>();
         readonly List<AxisEntry> _columns = new List<AxisEntry>();
         readonly Dictionary<Pair, bool> _groups = new Dictionary<Pair, bool>();
+        readonly Dictionary<Type, List<WAVESModuleBase>> _presets = new Dictionary<Type, List<WAVESModuleBase>>();
 
         SerializedObject _moduleObject;
         Vector2 _cardScroll;
@@ -64,6 +67,10 @@ namespace MadeYellow.WAVES.Editor
         GUIStyle _subtitle;
         GUIStyle _cardTitle;
         bool _cardPro;
+        GUIStyle _emptyTitle;
+        GUIStyle _emptyAction;
+        GUIStyle _emptyHint;
+        bool _emptyPro;
         GUIStyle _plusLabel;
         bool _plusPro;
         static GUIStyle _checkLabel;
@@ -127,11 +134,11 @@ namespace MadeYellow.WAVES.Editor
         }
 
         /// <summary>Opens the browser on the current selection.</summary>
-        [MenuItem("Window/MadeYellow/WAVES/Browser")]
+        [MenuItem("Window/MadeYellow/WAVES/Module Browser")]
         public static void Open()
         {
             var window = GetWindow<WAVESBrowserWindow>();
-            window.titleContent = new GUIContent("WAVES Browser");
+            window.titleContent = new GUIContent(WindowTitle);
             window.Show();
         }
 
@@ -139,7 +146,7 @@ namespace MadeYellow.WAVES.Editor
         public static void Open(AudioVisualEffects.WAVES waves, WAVESModuleBase module)
         {
             var window = GetWindow<WAVESBrowserWindow>();
-            window.titleContent = new GUIContent("WAVES Browser");
+            window.titleContent = new GUIContent(WindowTitle);
             window.Bind(waves, module);
             window.Show();
             window.Focus();
@@ -149,21 +156,18 @@ namespace MadeYellow.WAVES.Editor
         {
             _waves = waves;
             _loose = waves == null ? module : null;
-            _moduleIndex = 0;
+            _selected = null;
             _hasSelection = false;
-            if (waves == null || module == null)
+            if (waves != null && module != null)
             {
-                Repaint();
-                return;
-            }
+                for (int i = 0; i < waves.ModuleCount; i++)
+                {
+                    if (waves.GetModule(i) != module)
+                        continue;
 
-            for (int i = 0; i < waves.ModuleCount; i++)
-            {
-                if (waves.GetModule(i) != module)
-                    continue;
-
-                _moduleIndex = i;
-                break;
+                    _selected = module;
+                    break;
+                }
             }
 
             Repaint();
@@ -171,7 +175,7 @@ namespace MadeYellow.WAVES.Editor
 
         void OnEnable()
         {
-            titleContent = new GUIContent("WAVES Browser");
+            titleContent = new GUIContent(WindowTitle);
             minSize = new Vector2(880f, 520f);
             wantsMouseMove = true;
             WAVESCatalog.Retain();
@@ -189,7 +193,9 @@ namespace MadeYellow.WAVES.Editor
 
         void OnCatalogChanged()
         {
+            _presets.Clear();
             WAVESCatalog.Refresh();
+            WAVESModuleCatalog.Invalidate();
             Repaint();
         }
 
@@ -212,7 +218,7 @@ namespace MadeYellow.WAVES.Editor
 
             _waves = waves;
             _loose = null;
-            _moduleIndex = 0;
+            _selected = null;
             _hasSelection = false;
             Repaint();
         }
@@ -225,7 +231,6 @@ namespace MadeYellow.WAVES.Editor
             if (Event.current.type == EventType.Repaint)
                 EditorGUI.DrawRect(new Rect(0f, 0f, position.width, position.height), WAVESChrome.Canvas);
 
-            HandleAddPicker();
             DrawWavesField();
             DrawCards();
             DrawBody();
@@ -244,7 +249,7 @@ namespace MadeYellow.WAVES.Editor
 
             _waves = next;
             _loose = null;
-            _moduleIndex = 0;
+            _selected = null;
             _hasSelection = false;
             GUIUtility.ExitGUI();
         }
@@ -265,37 +270,38 @@ namespace MadeYellow.WAVES.Editor
                 GUI.skin.horizontalScrollbar,
                 GUIStyle.none,
                 GUIStyle.none,
-                GUILayout.Height(CardHeight + 4f + PresetPopup + 6f));
+                GUILayout.Height(CardStripHeight(WAVESModuleCatalog.Slots.Count)));
             EditorGUILayout.BeginHorizontal();
-            int count = _waves.ModuleCount;
-            for (int i = 0; i < count; i++)
+            IReadOnlyList<WAVESModuleCatalog.Slot> slots = WAVESModuleCatalog.Slots;
+            for (int i = 0; i < slots.Count; i++)
             {
                 if (i > 0)
                     GUILayout.Space(8f);
 
+                WAVESModuleCatalog.Slot slot = slots[i];
+                WAVESModuleBase module = AssignedModule(slot.Type);
                 EditorGUILayout.BeginVertical(GUILayout.Width(CardWidth));
-                if (DrawCard(i, _waves.GetModule(i)))
+                if (module == null)
+                    DrawEmptyCard(slot.Type, slot.Title);
+                else if (DrawFilledCard(module))
                 {
                     _moduleObject?.ApplyModifiedProperties();
                     Undo.RecordObject(_waves, "Remove WAVES Module");
-                    _waves.RemoveModuleAt(i);
+                    int index = ModuleIndex(module);
+                    if (index >= 0)
+                        _waves.RemoveModuleAt(index);
                     EditorUtility.SetDirty(_waves);
-                    _moduleIndex = Mathf.Clamp(_moduleIndex, 0, Mathf.Max(0, _waves.ModuleCount - 1));
+                    if (_selected == module)
+                        _selected = null;
                     _hasSelection = false;
                     GUIUtility.ExitGUI();
                 }
 
                 GUILayout.Space(4f);
-                DrawPresetPopup(i, _waves.GetModule(i));
+                DrawPresetPopup(slot.Type, module);
                 EditorGUILayout.EndVertical();
             }
 
-            if (count > 0)
-                GUILayout.Space(8f);
-
-            EditorGUILayout.BeginVertical(GUILayout.Width(CardWidth));
-            DrawAddCard();
-            EditorGUILayout.EndVertical();
             EditorGUILayout.EndHorizontal();
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -307,10 +313,65 @@ namespace MadeYellow.WAVES.Editor
             }
         }
 
-        bool DrawCard(int index, WAVESModuleBase module)
+        float CardStripHeight(int slotCount)
+        {
+            float content = CardHeight + 4f + PresetPopup + 6f;
+            if (slotCount <= 0)
+                return content;
+
+            float contentWidth = slotCount * CardWidth + Mathf.Max(0, slotCount - 1) * 8f;
+            float viewWidth = Mathf.Max(0f, position.width - 24f);
+            if (contentWidth <= viewWidth)
+                return content;
+
+            float bar = GUI.skin.horizontalScrollbar.fixedHeight;
+            if (bar < 12f)
+                bar = 15f;
+
+            return content + bar;
+        }
+
+        void DrawEmptyCard(Type type, string title)
         {
             Rect rect = GUILayoutUtility.GetRect(CardWidth, CardHeight, GUILayout.Width(CardWidth), GUILayout.Height(CardHeight));
-            bool selected = index == _moduleIndex;
+            bool hover = rect.Contains(Event.current.mousePosition);
+            if (Event.current.type == EventType.Repaint)
+            {
+                if (hover)
+                {
+                    Color wash = HoverWash();
+                    EditorGUI.DrawRect(rect, new Color(wash.r, wash.g, wash.b, 0.12f));
+                }
+
+                DrawOutline(rect, hover ? WAVESChrome.Ink : WAVESChrome.Line, 1f);
+                EnsureEmptyStyles();
+                float innerWidth = Mathf.Max(0f, rect.width - 16f);
+                var nameContent = new GUIContent(string.IsNullOrEmpty(title) ? "Module" : title);
+                var actionContent = new GUIContent("Click to create preset");
+                var hintContent = new GUIContent("Or select existing preset from drop-down below");
+                float nameHeight = _emptyTitle.CalcHeight(nameContent, innerWidth);
+                float actionHeight = _emptyAction.CalcHeight(actionContent, innerWidth);
+                float hintHeight = _emptyHint.CalcHeight(hintContent, innerWidth);
+                const float gap = 2f;
+                float block = nameHeight + gap + actionHeight + gap + hintHeight;
+                float y = rect.y + Mathf.Max(4f, (rect.height - block) * 0.5f);
+                float x = rect.x + 8f;
+                GUI.Label(new Rect(x, y, innerWidth, nameHeight), nameContent, _emptyTitle);
+                y += nameHeight + gap;
+                GUI.Label(new Rect(x, y, innerWidth, actionHeight), actionContent, _emptyAction);
+                y += actionHeight + gap;
+                GUI.Label(new Rect(x, y, innerWidth, hintHeight), hintContent, _emptyHint);
+            }
+
+            string tip = string.IsNullOrEmpty(title) ? "Create a new module preset" : "Create a new " + title + " preset";
+            if (GUI.Button(rect, new GUIContent(string.Empty, tip), GUIStyle.none))
+                CreatePreset(type, title);
+        }
+
+        bool DrawFilledCard(WAVESModuleBase module)
+        {
+            Rect rect = GUILayoutUtility.GetRect(CardWidth, CardHeight, GUILayout.Width(CardWidth), GUILayout.Height(CardHeight));
+            bool selected = module == _selected;
             if (Event.current.type == EventType.Repaint)
             {
                 GUI.DrawTexture(rect, CardGradient(), ScaleMode.StretchToFill, false);
@@ -320,7 +381,7 @@ namespace MadeYellow.WAVES.Editor
 
             Rect remove = new Rect(rect.xMax - 18f, rect.y + 2f, 16f, 16f);
             bool removed = WAVESEditor.DrawRemoveButton(remove, "Remove from this WAVES");
-            string title = module != null ? ModuleTitle(module) : "Missing";
+            string title = WAVESModuleCatalog.Title(module);
             EnsureCardStyles();
             var titleContent = new GUIContent(title);
             float textWidth = Mathf.Max(0f, rect.width - 28f);
@@ -335,9 +396,9 @@ namespace MadeYellow.WAVES.Editor
                 rect.Contains(click.mousePosition) &&
                 !remove.Contains(click.mousePosition))
             {
-                if (_moduleIndex != index)
+                if (_selected != module)
                 {
-                    _moduleIndex = index;
+                    _selected = module;
                     _hasSelection = false;
                     click.Use();
                     Repaint();
@@ -351,30 +412,40 @@ namespace MadeYellow.WAVES.Editor
             return removed;
         }
 
-        void DrawPresetPopup(int index, WAVESModuleBase module)
+        void DrawPresetPopup(Type type, WAVESModuleBase module)
         {
             Rect popup = GUILayoutUtility.GetRect(
                 CardWidth,
                 PresetPopup,
                 GUILayout.Width(CardWidth),
                 GUILayout.Height(PresetPopup));
-            if (module == null)
+            List<WAVESModuleBase> presets = Presets(type);
+            if (module != null && !presets.Contains(module))
+            {
+                presets = new List<WAVESModuleBase>(presets) { module };
+                presets.Sort(ComparePresetName);
+            }
+
+            if (module == null && presets.Count == 0)
             {
                 EditorGUI.BeginDisabledGroup(true);
-                EditorGUI.DropdownButton(popup, new GUIContent("Missing"), FocusType.Passive);
+                EditorGUI.DropdownButton(popup, new GUIContent("No presets"), FocusType.Passive);
                 EditorGUI.EndDisabledGroup();
                 return;
             }
 
-            if (!EditorGUI.DropdownButton(popup, new GUIContent(module.name), FocusType.Keyboard))
+            string label = module != null ? module.name : "Select preset";
+            if (!EditorGUI.DropdownButton(popup, new GUIContent(label), FocusType.Keyboard))
                 return;
 
-            ShowPresetMenu(index, module);
+            ShowPresetMenu(type, module, presets);
         }
 
-        void ShowPresetMenu(int index, WAVESModuleBase current)
+        void ShowPresetMenu(Type type, WAVESModuleBase current, List<WAVESModuleBase> presets)
         {
-            List<WAVESModuleBase> presets = LoadPresets(current.GetType());
+            if (presets == null)
+                presets = Presets(type);
+
             var counts = new Dictionary<string, int>();
             for (int i = 0; i < presets.Count; i++)
             {
@@ -400,7 +471,7 @@ namespace MadeYellow.WAVES.Editor
                 string label = preset.name.Replace("/", "-");
                 if (counts.TryGetValue(preset.name, out int count) && count > 1)
                 {
-                    string folder = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(preset));
+                    string folder = Path.GetDirectoryName(AssetDatabase.GetAssetPath(preset));
                     if (!string.IsNullOrEmpty(folder))
                         label = label + " (" + folder.Replace("/", "-").Replace("\\", "/") + ")";
                 }
@@ -412,20 +483,40 @@ namespace MadeYellow.WAVES.Editor
                 }
 
                 WAVESModuleBase chosen = preset;
-                int slot = index;
-                menu.AddItem(new GUIContent(label), false, () => AssignPreset(slot, chosen));
+                menu.AddItem(new GUIContent(label), false, () => AssignPreset(chosen));
             }
 
             menu.ShowAsContext();
         }
 
+        List<WAVESModuleBase> Presets(Type type)
+        {
+            if (type == null)
+                return new List<WAVESModuleBase>();
+            if (_presets.TryGetValue(type, out List<WAVESModuleBase> cached) && cached != null)
+                return cached;
+
+            List<WAVESModuleBase> loaded = LoadPresets(type);
+            _presets[type] = loaded;
+            return loaded;
+        }
+
         static List<WAVESModuleBase> LoadPresets(Type type)
         {
             var result = new List<WAVESModuleBase>();
-            if (type == null)
+            if (type == null || string.IsNullOrEmpty(type.Name))
                 return result;
 
-            string[] guids = AssetDatabase.FindAssets("t:" + type.Name);
+            string[] guids;
+            try
+            {
+                guids = AssetDatabase.FindAssets("t:" + type.Name);
+            }
+            catch (Exception)
+            {
+                return result;
+            }
+
             for (int i = 0; i < guids.Length; i++)
             {
                 var preset = AssetDatabase.LoadAssetAtPath<WAVESModuleBase>(AssetDatabase.GUIDToAssetPath(guids[i]));
@@ -449,94 +540,143 @@ namespace MadeYellow.WAVES.Editor
             return string.CompareOrdinal(left.name, right.name);
         }
 
-        void AssignPreset(int index, WAVESModuleBase preset)
+        void AssignPreset(WAVESModuleBase preset)
         {
             if (_waves == null || preset == null)
                 return;
 
-            var wavesObject = new SerializedObject(_waves);
-            SerializedProperty modules = wavesObject.FindProperty("_modules");
-            if (index < 0 || index >= modules.arraySize)
-                return;
-
-            modules.GetArrayElementAtIndex(index).objectReferenceValue = preset;
-            wavesObject.ApplyModifiedProperties();
-            if (index == _moduleIndex)
-            {
-                _hasSelection = false;
-                DisposeModuleObject();
-            }
-
+            Undo.RecordObject(_waves, "Assign WAVES Module");
+            _waves.AssignModule(preset);
+            EditorUtility.SetDirty(_waves);
+            _selected = preset;
+            _hasSelection = false;
+            DisposeModuleObject();
             Repaint();
         }
 
-        void DrawAddCard()
+        void CreatePreset(Type type, string title)
         {
-            Rect rect = GUILayoutUtility.GetRect(CardWidth, CardHeight, GUILayout.Width(CardWidth), GUILayout.Height(CardHeight));
-            if (DrawSquareButton(rect, "Add Module", "Add a module preset"))
-                EditorGUIUtility.ShowObjectPicker<WAVESModuleBase>(null, false, string.Empty, AddPicker);
-        }
-
-        bool DrawSquareButton(Rect rect, string text, string tooltip)
-        {
-            bool hover = rect.Contains(Event.current.mousePosition);
-            if (Event.current.type == EventType.Repaint)
-            {
-                if (hover)
-                    EditorGUI.DrawRect(rect, new Color(HoverWash().r, HoverWash().g, HoverWash().b, 0.12f));
-                DrawOutline(rect, hover ? WAVESChrome.Ink : WAVESChrome.Line, 1f);
-                GUI.Label(rect, text, PlusLabel());
-            }
-
-            return GUI.Button(rect, new GUIContent(string.Empty, tooltip), GUIStyle.none);
-        }
-
-        void HandleAddPicker()
-        {
-            Event evt = Event.current;
-            if (evt.type != EventType.ExecuteCommand || evt.commandName != "ObjectSelectorClosed")
-                return;
-            if (EditorGUIUtility.GetObjectPickerControlID() != AddPicker || _waves == null)
+            if (_waves == null || type == null)
                 return;
 
-            var module = EditorGUIUtility.GetObjectPickerObject() as WAVESModuleBase;
-            evt.Use();
-            if (module == null)
+            if (string.IsNullOrEmpty(title))
+                title = WAVESModuleCatalog.Title(type);
+
+            string path = EditorUtility.SaveFilePanelInProject(
+                "Create " + title + " Preset",
+                PresetFileName(title),
+                "asset",
+                "Choose where to save the preset.");
+            if (string.IsNullOrEmpty(path))
                 return;
 
-            Undo.RecordObject(_waves, "Assign WAVES Module");
-            _waves.AssignModule(module);
+            var preset = ScriptableObject.CreateInstance(type) as WAVESModuleBase;
+            if (preset == null)
+                return;
+
+            AssetDatabase.CreateAsset(preset, path);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(path);
+            _presets.Remove(type);
+            Undo.RecordObject(_waves, "Create WAVES Module Preset");
+            _waves.AssignModule(preset);
             EditorUtility.SetDirty(_waves);
-            for (int i = 0; i < _waves.ModuleCount; i++)
-            {
-                if (_waves.GetModule(i) != module)
-                    continue;
+            _selected = preset;
+            _hasSelection = false;
+            DisposeModuleObject();
+            GUIUtility.ExitGUI();
+        }
 
-                _moduleIndex = i;
-                break;
+        static string PresetFileName(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                title = "Module";
+
+            char[] invalid = Path.GetInvalidFileNameChars();
+            var builder = new StringBuilder(title.Length);
+            for (int i = 0; i < title.Length; i++)
+            {
+                char character = title[i];
+                bool skip = false;
+                for (int j = 0; j < invalid.Length; j++)
+                {
+                    if (invalid[j] != character)
+                        continue;
+
+                    skip = true;
+                    break;
+                }
+
+                builder.Append(skip ? ' ' : character);
             }
 
-            _hasSelection = false;
+            string clean = builder.ToString().Trim();
+            if (clean.Length == 0)
+                clean = "Module";
+
+            return "New " + clean + " Preset";
+        }
+
+        WAVESModuleBase AssignedModule(Type type)
+        {
+            if (_waves == null || type == null)
+                return null;
+
+            int count = _waves.ModuleCount;
+            for (int i = 0; i < count; i++)
+            {
+                WAVESModuleBase module = _waves.GetModule(i);
+                if (module != null && module.GetType() == type)
+                    return module;
+            }
+
+            return null;
+        }
+
+        int ModuleIndex(WAVESModuleBase module)
+        {
+            if (_waves == null || module == null)
+                return -1;
+
+            int count = _waves.ModuleCount;
+            for (int i = 0; i < count; i++)
+            {
+                if (_waves.GetModule(i) == module)
+                    return i;
+            }
+
+            return -1;
         }
 
         void DrawBody()
         {
+            if (_waves == null && _loose == null)
+            {
+                EditorGUILayout.HelpBox("Select a WAVES component to edit its modules.", MessageType.Info);
+                return;
+            }
+
             WAVESModuleBase module = CurrentModule();
             if (module == null)
             {
-                string message = _waves != null
-                    ? "Add a module preset."
-                    : "Select a WAVES component to edit its modules.";
-                EditorGUILayout.HelpBox(message, MessageType.Info);
+                WAVESModuleEditors.DrawCenteredNotice(
+                    "Select Module to edit",
+                    "WAVES is a modular system. To set up its behavior, add the modules you need by creating or selecting a preset. The module editor will appear here.");
                 return;
             }
 
             EnsureModuleObject(module);
             _moduleObject.Update();
-            SerializedProperty cells = _moduleObject.FindProperty("_cells");
-            if (cells == null)
+            if (WAVESModuleEditors.TryDraw(module, _moduleObject))
             {
-                EditorGUILayout.HelpBox("This module has no actor and surface groups.", MessageType.Info);
+                _moduleObject.ApplyModifiedProperties();
+                return;
+            }
+
+            SerializedProperty cells = _moduleObject.FindProperty("_cells");
+            if (!IsActorSurfaceList(module, cells))
+            {
+                WAVESModuleEditors.DrawCenteredNotice("No editor", "This module has no editor yet.");
                 _moduleObject.ApplyModifiedProperties();
                 return;
             }
@@ -575,11 +715,16 @@ namespace MadeYellow.WAVES.Editor
             if (_waves == null)
                 return _loose;
 
-            if (_waves.ModuleCount == 0)
+            if (_selected == null)
                 return null;
 
-            _moduleIndex = Mathf.Clamp(_moduleIndex, 0, _waves.ModuleCount - 1);
-            return _waves.GetModule(_moduleIndex);
+            if (ModuleIndex(_selected) < 0)
+            {
+                _selected = null;
+                return null;
+            }
+
+            return _selected;
         }
 
         void DrawDetail(WAVESModuleBase module, SerializedProperty cells)
@@ -616,27 +761,38 @@ namespace MadeYellow.WAVES.Editor
             }
 
             DrawGroupHeader(cell);
-            _detailScroll = EditorGUILayout.BeginScrollView(
-                _detailScroll,
-                false,
-                false,
-                GUIStyle.none,
-                GUI.skin.verticalScrollbar,
-                DetailContentStyle(),
-                GUILayout.ExpandWidth(true),
-                GUILayout.ExpandHeight(true));
-            GUILayout.Space(DetailInset);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(DetailInset);
-            EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true));
             string scope = module.GetEntityId() + "." + Identity(_selectedSurface) + "." + Identity(_selectedActor);
-            if (!WAVESModuleDrawers.Draw(module, cell.FindPropertyRelative("_data"), scope))
-                EditorGUILayout.HelpBox("This module has no group editor.", MessageType.Info);
-            EditorGUILayout.EndVertical();
-            GUILayout.Space(DetailInset);
-            EditorGUILayout.EndHorizontal();
-            GUILayout.Space(DetailInset);
-            EditorGUILayout.EndScrollView();
+            SerializedProperty data = cell.FindPropertyRelative("_data");
+            if (WAVESModuleDrawers.Scrolls(module))
+            {
+                _detailScroll = EditorGUILayout.BeginScrollView(
+                    _detailScroll,
+                    false,
+                    false,
+                    GUIStyle.none,
+                    GUI.skin.verticalScrollbar,
+                    DetailContentStyle(),
+                    GUILayout.ExpandWidth(true),
+                    GUILayout.ExpandHeight(true));
+                GUILayout.Space(DetailInset);
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Space(DetailInset);
+                EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true));
+                if (!WAVESModuleDrawers.Draw(module, data, scope))
+                    EditorGUILayout.HelpBox("This module has no group editor.", MessageType.Info);
+                EditorGUILayout.EndVertical();
+                GUILayout.Space(DetailInset);
+                EditorGUILayout.EndHorizontal();
+                GUILayout.Space(DetailInset);
+                EditorGUILayout.EndScrollView();
+            }
+            else
+            {
+                EditorGUILayout.BeginVertical(GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
+                if (!WAVESModuleDrawers.Draw(module, data, scope))
+                    EditorGUILayout.HelpBox("This module has no group editor.", MessageType.Info);
+                EditorGUILayout.EndVertical();
+            }
             if (!DrawRemoveBar())
                 return;
 
@@ -680,6 +836,9 @@ namespace MadeYellow.WAVES.Editor
                 return;
 
             SerializedProperty enabled = cell.FindPropertyRelative("_enabled");
+            if (enabled == null)
+                return;
+
             bool on = enabled.boolValue;
             string tooltip = on ? "Click to disable this group" : "Click to enable this group";
             if (DrawSwitch(toggle, on, tooltip))
@@ -1380,15 +1539,43 @@ namespace MadeYellow.WAVES.Editor
             into.Add(new AxisEntry { Plus = true, Color = WAVESPalettePreferences.FallbackSurface });
         }
 
+        static bool IsActorSurfaceList(WAVESModuleBase module, SerializedProperty cells)
+        {
+            if (cells == null || !cells.isArray)
+                return false;
+
+            if (cells.arraySize > 0)
+                return HasGroupFields(cells.GetArrayElementAtIndex(0));
+
+            string elementType = cells.arrayElementType;
+            if (!string.IsNullOrEmpty(elementType) && elementType.IndexOf("ModuleCell", StringComparison.Ordinal) >= 0)
+                return true;
+
+            return WAVESModuleDrawers.Has(module);
+        }
+
+        static bool HasGroupFields(SerializedProperty element)
+        {
+            return element != null &&
+                   element.FindPropertyRelative("_surface") != null &&
+                   element.FindPropertyRelative("_actor") != null &&
+                   element.FindPropertyRelative("_enabled") != null &&
+                   element.FindPropertyRelative("_data") != null;
+        }
+
         void ReadGroups(SerializedProperty cells)
         {
             _groups.Clear();
             for (int i = 0; i < cells.arraySize; i++)
             {
                 SerializedProperty element = cells.GetArrayElementAtIndex(i);
-                EntityId surface = Identity(element.FindPropertyRelative("_surface").objectReferenceValue);
-                EntityId actor = Identity(element.FindPropertyRelative("_actor").objectReferenceValue);
-                _groups[new Pair(surface, actor)] = element.FindPropertyRelative("_enabled").boolValue;
+                SerializedProperty surface = element.FindPropertyRelative("_surface");
+                SerializedProperty actor = element.FindPropertyRelative("_actor");
+                SerializedProperty enabled = element.FindPropertyRelative("_enabled");
+                if (surface == null || actor == null || enabled == null)
+                    continue;
+
+                _groups[new Pair(Identity(surface.objectReferenceValue), Identity(actor.objectReferenceValue))] = enabled.boolValue;
             }
         }
 
@@ -1400,9 +1587,18 @@ namespace MadeYellow.WAVES.Editor
             int index = cells.arraySize;
             cells.arraySize = index + 1;
             SerializedProperty element = cells.GetArrayElementAtIndex(index);
-            element.FindPropertyRelative("_surface").objectReferenceValue = surface;
-            element.FindPropertyRelative("_actor").objectReferenceValue = actor;
-            element.FindPropertyRelative("_enabled").boolValue = true;
+            SerializedProperty surfaceProperty = element.FindPropertyRelative("_surface");
+            SerializedProperty actorProperty = element.FindPropertyRelative("_actor");
+            SerializedProperty enabled = element.FindPropertyRelative("_enabled");
+            if (surfaceProperty == null || actorProperty == null || enabled == null)
+            {
+                cells.arraySize = index;
+                return;
+            }
+
+            surfaceProperty.objectReferenceValue = surface;
+            actorProperty.objectReferenceValue = actor;
+            enabled.boolValue = true;
             ResetPayload(element.FindPropertyRelative("_data"));
             _groups[new Pair(Identity(surface), Identity(actor))] = true;
         }
@@ -1422,9 +1618,13 @@ namespace MadeYellow.WAVES.Editor
             for (int i = 0; i < cells.arraySize; i++)
             {
                 SerializedProperty element = cells.GetArrayElementAtIndex(i);
-                if (element.FindPropertyRelative("_surface").objectReferenceValue != surface)
+                SerializedProperty surfaceProperty = element.FindPropertyRelative("_surface");
+                SerializedProperty actorProperty = element.FindPropertyRelative("_actor");
+                if (surfaceProperty == null || actorProperty == null)
                     continue;
-                if (element.FindPropertyRelative("_actor").objectReferenceValue != actor)
+                if (surfaceProperty.objectReferenceValue != surface)
+                    continue;
+                if (actorProperty.objectReferenceValue != actor)
                     continue;
 
                 return i;
@@ -1533,16 +1733,51 @@ namespace MadeYellow.WAVES.Editor
             return asset != null ? asset.GetEntityId() : EntityId.None;
         }
 
-        static string ModuleTitle(WAVESModuleBase module)
+        void EnsureEmptyStyles()
         {
-            var named = (WAVESModuleNameAttribute)Attribute.GetCustomAttribute(
-                module.GetType(),
-                typeof(WAVESModuleNameAttribute),
-                false);
-            if (named != null && !string.IsNullOrEmpty(named.Name))
-                return named.Name;
+            bool pro = EditorGUIUtility.isProSkin;
+            if (_emptyTitle != null && _emptyPro == pro)
+                return;
 
-            return module.GetType().Name;
+            _emptyPro = pro;
+            Color ink = WAVESChrome.Ink;
+            Color muted = WAVESChrome.Muted;
+            Color title = WAVESChrome.Gold;
+            _emptyTitle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 13,
+                wordWrap = true,
+                clipping = TextClipping.Clip
+            };
+            _emptyTitle.normal.textColor = title;
+            _emptyTitle.hover.textColor = title;
+            _emptyTitle.active.textColor = title;
+            _emptyTitle.focused.textColor = title;
+
+            _emptyAction = new GUIStyle(EditorStyles.boldLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 12,
+                wordWrap = true,
+                clipping = TextClipping.Clip
+            };
+            _emptyAction.normal.textColor = ink;
+            _emptyAction.hover.textColor = ink;
+            _emptyAction.active.textColor = ink;
+            _emptyAction.focused.textColor = ink;
+
+            _emptyHint = new GUIStyle(EditorStyles.miniLabel)
+            {
+                alignment = TextAnchor.UpperCenter,
+                fontSize = 10,
+                wordWrap = true,
+                clipping = TextClipping.Clip
+            };
+            _emptyHint.normal.textColor = muted;
+            _emptyHint.hover.textColor = muted;
+            _emptyHint.active.textColor = muted;
+            _emptyHint.focused.textColor = muted;
         }
 
         GUIStyle PlusLabel()
@@ -1749,7 +1984,7 @@ namespace MadeYellow.WAVES.Editor
             {
                 alignment = TextAnchor.MiddleCenter,
                 clipping = TextClipping.Clip,
-                wordWrap = false
+                wordWrap = true
             };
             Color ink = Color.white;
             _cardTitle.normal.textColor = ink;

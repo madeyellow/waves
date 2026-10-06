@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.5] - 2026-10-06
+
+### Added
+
+- WAVES Module Browser shows one slot for every module type in the project. Built-in modules come first: Footsteps, Jumps & Lands, and Directional Actions. Every other module, including ones added by the project, follows in name order. A module with no readable name uses its class name.
+
+- An empty slot creates a preset named "New {Module Name} Preset", or takes one that already exists from the dropdown. When that module has no presets, the dropdown is disabled and reads "No presets". Choosing a preset, or clicking a filled slot, edits that module. Until one is selected, the browser explains that WAVES is set up by adding module presets.
+
+- Jumps & Lands and Directional Actions ship with the package. Their actor and surface matrix can create groups. The group editor says "WIP: Coming soon" until those effects exist. A custom module with no editor of its own still gets a slot, and a selected group says there is nothing to edit yet.
+
+### Changed
+
+- The window is WAVES Module Browser, opened from Window > MadeYellow > WAVES > Module Browser. The Add Module button is gone, because every module already has a slot. The module name on an empty slot is gold, so it stays separate from the create-preset label.
+
+- The WAVES component lists only modules already assigned to it. Clicking one opens WAVES Module Browser on that component and that preset. When none are assigned, a button opens the browser. Removing a module there updates an open browser: that slot becomes empty, and the editor closes if that module was selected.
+
+### Fixed
+
+- The horizontal scrollbar on the module strip no longer covers the preset dropdowns when the window is too narrow to show every slot.
+
 ## [0.1.4] - 2026-10-05
 
 ### Fixed

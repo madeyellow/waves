@@ -10,9 +10,9 @@ namespace MadeYellow.WAVES.Editor
         public override void OnInspectorGUI()
         {
             EditorGUILayout.HelpBox(
-                "Actor and surface groups are edited in the WAVES browser.",
+                "Actor and surface groups are edited in the WAVES Module Browser.",
                 MessageType.Info);
-            if (GUILayout.Button("Open WAVES Browser"))
+            if (GUILayout.Button("Open WAVES Module Browser"))
                 WAVESBrowserWindow.Open(null, (WAVESFootstepModule)target);
         }
     }
