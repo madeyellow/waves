@@ -1,4 +1,3 @@
-using System;
 using MadeYellow.WAVES.AudioVisualEffects;
 using MadeYellow.WAVES.Surfaces;
 using NUnit.Framework;
@@ -578,7 +577,7 @@ namespace MadeYellow.WAVES.Tests.Editor
         [Test]
         public void TryGetSurface_LoadsASavedSurfaceTypeThatNoSceneObjectReferences()
         {
-            string folder = "__WAVESSurfaceReload_" + Guid.NewGuid().ToString("N");
+            string folder = "__WAVESSurfaceReload_" + System.Guid.NewGuid().ToString("N");
             string root = "Assets/" + folder;
             AssetDatabase.CreateFolder("Assets", folder);
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
