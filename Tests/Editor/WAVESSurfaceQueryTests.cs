@@ -1,6 +1,8 @@
+using System;
 using MadeYellow.WAVES.AudioVisualEffects;
 using MadeYellow.WAVES.Surfaces;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace MadeYellow.WAVES.Tests.Editor
@@ -547,6 +549,61 @@ namespace MadeYellow.WAVES.Tests.Editor
                 Object.DestroyImmediate(material);
                 Object.DestroyImmediate(cube);
                 Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsAMaterialAfterTheRegistryIsCleared()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            surface.UseBindingsForTests(new[] { material }, null);
+            SurfaceRegistry.ForgetDefinitionsForTests();
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_LoadsASavedSurfaceTypeThatNoSceneObjectReferences()
+        {
+            string folder = "__WAVESSurfaceReload_" + Guid.NewGuid().ToString("N");
+            string root = "Assets/" + folder;
+            AssetDatabase.CreateFolder("Assets", folder);
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            AssetDatabase.CreateAsset(material, root + "/grass.mat");
+            var surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            AssetDatabase.CreateAsset(surface, root + "/GrassFromDisk.asset");
+            surface.UseBindingsForTests(new[] { material }, null);
+            EditorUtility.SetDirty(surface);
+            AssetDatabase.SaveAssets();
+            SurfaceRegistry.ForgetDefinitionsForTests();
+            Resources.UnloadAsset(surface);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreEqual("GrassFromDisk", resolved.name);
+                Assert.AreEqual(material, resolved.GetMaterial(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(cube);
+                if (AssetDatabase.IsValidFolder(root))
+                    AssetDatabase.DeleteAsset(root);
             }
         }
 

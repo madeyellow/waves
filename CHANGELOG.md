@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.12] - 2026-10-07
+
+### Fixed
+
+- A mesh with no Surface Marker is recognized from its materials again after Play Mode starts. Entering Play Mode cleared the loaded surface types, and a type that nothing in the scene referenced was not loaded again, so the material check looked at an empty list. The next lookup collects those types before it compares materials and textures.
+
 ## [0.1.11] - 2026-10-07
 
 ### Added

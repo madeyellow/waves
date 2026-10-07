@@ -1,11 +1,15 @@
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace MadeYellow.WAVES.Surfaces
 {
     /// <summary>
     /// Collider ids mapped to surface types, plus materials and textures loaded with those types.
-    /// Marker and terrain tables are cleared on domain reload. Definitions register again from OnEnable.
+    /// Marker and terrain tables are cleared on domain reload. Surface types are collected again on the next lookup,
+    /// because a type with no marker is not kept alive by the collider and OnEnable does not run a second time.
     /// </summary>
     static class SurfaceRegistry
     {
@@ -25,6 +29,7 @@ namespace MadeYellow.WAVES.Surfaces
         static readonly Dictionary<EntityId, int[]> ShaderTextures = new Dictionary<EntityId, int[]>();
         static readonly List<Material> MaterialBuffer = new List<Material>(4);
         static bool _indexDirty = true;
+        static bool _adoptedProject;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void Reset()
@@ -32,6 +37,7 @@ namespace MadeYellow.WAVES.Surfaces
             Markers.Clear();
             Terrains.Clear();
             Definitions.Clear();
+            _adoptedProject = false;
             ClearIndex();
         }
 
@@ -48,6 +54,15 @@ namespace MadeYellow.WAVES.Surfaces
                     Definitions.Add(loaded[i]);
             }
 
+            _adoptedProject = false;
+            ClearIndex();
+        }
+
+        /// <summary>Drops surface types the way a domain reload does, without removing markers. Used by tests.</summary>
+        internal static void ForgetDefinitionsForTests()
+        {
+            Definitions.Clear();
+            _adoptedProject = false;
             ClearIndex();
         }
 
@@ -288,6 +303,7 @@ namespace MadeYellow.WAVES.Surfaces
             if (!_indexDirty)
                 return;
 
+            AdoptDefinitions();
             _indexDirty = false;
             Materials.Clear();
             Textures.Clear();
@@ -334,6 +350,33 @@ namespace MadeYellow.WAVES.Surfaces
                 return name;
 
             return left.GetEntityId().GetHashCode().CompareTo(right.GetEntityId().GetHashCode());
+        }
+
+        static void AdoptDefinitions()
+        {
+#if UNITY_EDITOR
+            if (!_adoptedProject)
+            {
+                _adoptedProject = true;
+                string[] guids = AssetDatabase.FindAssets("t:SurfaceTypeDefinition");
+                for (int i = 0; i < guids.Length; i++)
+                {
+                    AssetDatabase.LoadAssetAtPath<SurfaceTypeDefinition>(
+                        AssetDatabase.GUIDToAssetPath(guids[i]));
+                }
+            }
+#endif
+            SurfaceTypeDefinition[] loaded = Resources.FindObjectsOfTypeAll<SurfaceTypeDefinition>();
+            for (int i = 0; i < loaded.Length; i++)
+                Remember(loaded[i]);
+        }
+
+        static void Remember(SurfaceTypeDefinition type)
+        {
+            if (type == null || Definitions.Contains(type))
+                return;
+
+            Definitions.Add(type);
         }
 
         static void ClearIndex()
