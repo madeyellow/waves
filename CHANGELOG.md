@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.13] - 2026-10-07
+
+### Changed
+
+- Terrain Surface Map no longer has a Bindings list. When play starts, each terrain layer is matched to the surface type that lists its texture. The diffuse texture is checked first, then the normal map, then the mask. A layer whose textures are not listed is not a match, and the query does not fall through to materials on a mesh. When the same texture is listed on more than one type, the lower Order wins.
+
 ## [0.1.12] - 2026-10-07
 
 ### Fixed

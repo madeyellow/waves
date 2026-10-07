@@ -1,26 +1,30 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace MadeYellow.WAVES.Surfaces
 {
-    /// <summary>Dominant terrain layer at a point, mapped to a surface type.</summary>
+    /// <summary>Dominant terrain layer at a point, mapped to a surface type through its textures.</summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Terrain))]
     [RequireComponent(typeof(TerrainCollider))]
     [AddComponentMenu("MadeYellow/WAVES/Terrain Surface Map")]
     public sealed class TerrainSurfaceMap : MonoBehaviour
     {
-        /// <summary>Which terrain layer is which surface. An empty surface is not a match.</summary>
-        [SerializeField]
-        [Tooltip("Surface for each terrain layer. An empty slot is not a match, so the footstep preset uses its fallback.")]
-        List<TerrainLayerBinding> _bindings = new List<TerrainLayerBinding>();
-
         Terrain _terrain;
         TerrainCollider _collider;
         byte[] _dominant;
         SurfaceTypeDefinition[] _layerToSurface;
         int _width;
         int _height;
+
+        void Awake()
+        {
+            if (!Application.isPlaying)
+                return;
+
+            _terrain = GetComponent<Terrain>();
+            _collider = GetComponent<TerrainCollider>();
+            BuildMap();
+        }
 
         void OnEnable()
         {
@@ -32,7 +36,8 @@ namespace MadeYellow.WAVES.Surfaces
             if (_collider != null)
                 SurfaceRegistry.RegisterTerrain(_collider.GetEntityId(), this);
 
-            BuildMap();
+            if (_dominant == null)
+                BuildMap();
         }
 
         void OnDisable()
@@ -61,6 +66,14 @@ namespace MadeYellow.WAVES.Surfaces
             _height = height;
             _dominant = dominant;
             _layerToSurface = surfaces;
+        }
+
+        /// <summary>Rebuilds the layer map from each layer's textures. Used by tests.</summary>
+        internal void RebuildForTests()
+        {
+            _terrain = GetComponent<Terrain>();
+            _collider = GetComponent<TerrainCollider>();
+            BuildMap();
         }
 
         /// <summary>Surface at a world point. False outside the map or when that layer is unbound.</summary>
@@ -117,7 +130,7 @@ namespace MadeYellow.WAVES.Surfaces
             for (int i = 0; i < layers; i++)
             {
                 TerrainLayer layer = terrainLayers != null && i < terrainLayers.Length ? terrainLayers[i] : null;
-                _layerToSurface[i] = FindBinding(layer);
+                _layerToSurface[i] = ResolveLayer(layer);
             }
 
             float[,,] alpha = data.GetAlphamaps(0, 0, _width, _height);
@@ -145,72 +158,21 @@ namespace MadeYellow.WAVES.Surfaces
             }
         }
 
-        SurfaceTypeDefinition FindBinding(TerrainLayer layer)
+        SurfaceTypeDefinition ResolveLayer(TerrainLayer layer)
         {
-            if (layer == null || _bindings == null)
+            if (layer == null)
                 return null;
 
-            for (int i = 0; i < _bindings.Count; i++)
-            {
-                TerrainLayerBinding binding = _bindings[i];
-                if (binding != null && binding.Layer == layer)
-                    return binding.Surface;
-            }
+            if (SurfaceRegistry.TryGetSurface(layer.diffuseTexture, out SurfaceTypeDefinition fromDiffuse))
+                return fromDiffuse;
+
+            if (SurfaceRegistry.TryGetSurface(layer.normalMapTexture, out SurfaceTypeDefinition fromNormal))
+                return fromNormal;
+
+            if (SurfaceRegistry.TryGetSurface(layer.maskMapTexture, out SurfaceTypeDefinition fromMask))
+                return fromMask;
 
             return null;
-        }
-
-#if UNITY_EDITOR
-        /// <summary>Adds a slot for every layer on this terrain. Assigned surfaces are kept.</summary>
-        [ContextMenu("Bind Terrain Layers")]
-        void BindLayers()
-        {
-            Terrain terrain = GetComponent<Terrain>();
-            TerrainData data = terrain != null ? terrain.terrainData : null;
-            if (data == null)
-                return;
-
-            UnityEditor.Undo.RecordObject(this, "Bind Terrain Layers");
-            TerrainLayer[] layers = data.terrainLayers;
-            var next = new List<TerrainLayerBinding>();
-            if (layers != null)
-            {
-                for (int i = 0; i < layers.Length; i++)
-                {
-                    TerrainLayer layer = layers[i];
-                    if (layer == null)
-                        continue;
-
-                    var binding = new TerrainLayerBinding();
-                    binding.Set(layer, FindBinding(layer));
-                    next.Add(binding);
-                }
-            }
-
-            _bindings = next;
-            UnityEditor.EditorUtility.SetDirty(this);
-        }
-#endif
-    }
-
-    /// <summary>One terrain layer and the surface it represents.</summary>
-    [System.Serializable]
-    public sealed class TerrainLayerBinding
-    {
-        [SerializeField] TerrainLayer _layer;
-        [SerializeField] SurfaceTypeDefinition _surface;
-
-        /// <summary>Layer on this terrain.</summary>
-        public TerrainLayer Layer => _layer;
-
-        /// <summary>Surface for <see cref="Layer"/>. Null means the layer is not a match.</summary>
-        public SurfaceTypeDefinition Surface => _surface;
-
-        /// <summary>Writes both sides of the pair.</summary>
-        public void Set(TerrainLayer layer, SurfaceTypeDefinition surface)
-        {
-            _layer = layer;
-            _surface = surface;
         }
     }
 }

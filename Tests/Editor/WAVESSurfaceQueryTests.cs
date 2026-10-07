@@ -1269,7 +1269,256 @@ namespace MadeYellow.WAVES.Tests.Editor
             }
         }
 
+        [Test]
+        public void TryGetSurface_MatchesTerrainLayersFromTheirTextures()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var grassTexture = new Texture2D(2, 2);
+            var stoneTexture = new Texture2D(2, 2);
+            grass.UseBindingsForTests(null, new Texture[] { grassTexture });
+            stone.UseBindingsForTests(null, new Texture[] { stoneTexture });
+            var grassLayer = new TerrainLayer { diffuseTexture = grassTexture };
+            var stoneLayer = new TerrainLayer { diffuseTexture = stoneTexture };
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            TerrainData data = PaintTerrain(ground.GetComponent<Terrain>(), grassLayer, stoneLayer);
+            map.RebuildForTests();
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool onGrass = query.TryGetSurface(collider, new Vector3(0.1f, 0f, 0.1f), out SurfaceTypeDefinition grassType);
+                bool onStone = query.TryGetSurface(collider, new Vector3(0.9f, 0f, 0.1f), out SurfaceTypeDefinition stoneType);
+                Assert.IsTrue(onGrass);
+                Assert.AreSame(grass, grassType);
+                Assert.IsTrue(onStone);
+                Assert.AreSame(stone, stoneType);
+            }
+            finally
+            {
+                Object.DestroyImmediate(grassTexture);
+                Object.DestroyImmediate(stoneTexture);
+                Object.DestroyImmediate(grassLayer);
+                Object.DestroyImmediate(stoneLayer);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersTheDiffuseTextureOnATerrainLayer()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var diffuse = new Texture2D(2, 2);
+            var normal = new Texture2D(2, 2);
+            var mask = new Texture2D(2, 2);
+            grass.UseBindingsForTests(null, new Texture[] { diffuse });
+            stone.UseBindingsForTests(null, new Texture[] { normal, mask });
+            var layer = new TerrainLayer
+            {
+                diffuseTexture = diffuse,
+                normalMapTexture = normal,
+                maskMapTexture = mask
+            };
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            TerrainData data = PaintTerrain(ground.GetComponent<Terrain>(), layer);
+            map.RebuildForTests();
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, new Vector3(0.1f, 0f, 0.1f), out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(grass, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(diffuse);
+                Object.DestroyImmediate(normal);
+                Object.DestroyImmediate(mask);
+                Object.DestroyImmediate(layer);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_UsesTheNormalTextureWhenTheDiffuseIsNotListed()
+        {
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var diffuse = new Texture2D(2, 2);
+            var normal = new Texture2D(2, 2);
+            stone.UseBindingsForTests(null, new Texture[] { normal });
+            var layer = new TerrainLayer { diffuseTexture = diffuse, normalMapTexture = normal };
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            TerrainData data = PaintTerrain(ground.GetComponent<Terrain>(), layer);
+            map.RebuildForTests();
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, new Vector3(0.1f, 0f, 0.1f), out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(diffuse);
+                Object.DestroyImmediate(normal);
+                Object.DestroyImmediate(layer);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_UsesTheMaskTextureWhenEarlierTexturesAreNotListed()
+        {
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var diffuse = new Texture2D(2, 2);
+            var normal = new Texture2D(2, 2);
+            var mask = new Texture2D(2, 2);
+            stone.UseBindingsForTests(null, new Texture[] { mask });
+            var layer = new TerrainLayer
+            {
+                diffuseTexture = diffuse,
+                normalMapTexture = normal,
+                maskMapTexture = mask
+            };
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            TerrainData data = PaintTerrain(ground.GetComponent<Terrain>(), layer);
+            map.RebuildForTests();
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, new Vector3(0.1f, 0f, 0.1f), out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(diffuse);
+                Object.DestroyImmediate(normal);
+                Object.DestroyImmediate(mask);
+                Object.DestroyImmediate(layer);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersTheEarlierSurfaceWhenATerrainTextureIsShared()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var texture = new Texture2D(2, 2);
+            grass.UseBindingsForTests(null, new Texture[] { texture });
+            stone.UseBindingsForTests(null, new Texture[] { texture });
+            grass.SetOrder(5);
+            stone.SetOrder(0);
+            var layer = new TerrainLayer { diffuseTexture = texture };
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            TerrainData data = PaintTerrain(ground.GetComponent<Terrain>(), layer);
+            map.RebuildForTests();
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, new Vector3(0.1f, 0f, 0.1f), out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(layer);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_DoesNotUseMaterialsWhenATerrainTextureIsNotListed()
+        {
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var texture = new Texture2D(2, 2);
+            var layer = new TerrainLayer { diffuseTexture = texture };
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            TerrainData data = PaintTerrain(ground.GetComponent<Terrain>(), layer);
+            var renderer = ground.AddComponent<MeshRenderer>();
+            Material material = NewMaterial();
+            renderer.sharedMaterial = material;
+            stone.UseBindingsForTests(new[] { material }, null);
+            map.RebuildForTests();
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, new Vector3(0.1f, 0f, 0.1f), out SurfaceTypeDefinition resolved);
+                Assert.IsFalse(found);
+                Assert.IsNull(resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(layer);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
         static readonly RaycastHit DefaultHit = default;
+
+        static TerrainData PaintTerrain(Terrain terrain, params TerrainLayer[] layers)
+        {
+            var data = new TerrainData
+            {
+                alphamapResolution = 16,
+                size = Vector3.one
+            };
+            data.terrainLayers = layers;
+            int width = data.alphamapWidth;
+            int height = data.alphamapHeight;
+            var alpha = new float[height, width, layers.Length];
+            int split = Mathf.Max(1, width / 2);
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int layer = layers.Length > 1 && x >= split ? 1 : 0;
+                    alpha[z, x, layer] = 1f;
+                }
+            }
+
+            data.SetAlphamaps(0, 0, alpha);
+            terrain.terrainData = data;
+            terrain.GetComponent<TerrainCollider>().terrainData = data;
+            return data;
+        }
 
         static Material UniqueMaterial(MeshRenderer renderer)
         {

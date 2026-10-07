@@ -183,6 +183,17 @@ namespace MadeYellow.WAVES.Surfaces
             return false;
         }
 
+        /// <summary>Surface that lists <paramref name="texture"/>. Lower order wins when several types list it.</summary>
+        internal static bool TryGetSurface(Texture texture, out SurfaceTypeDefinition surface)
+        {
+            surface = null;
+            if (texture == null)
+                return false;
+
+            EnsureIndex();
+            return Textures.TryGetValue(texture.GetEntityId(), out surface);
+        }
+
         static bool TryResolveRenderer(Collider collider, out SurfaceTypeDefinition surface)
         {
             surface = null;
