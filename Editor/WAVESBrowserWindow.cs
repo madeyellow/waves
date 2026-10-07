@@ -1830,6 +1830,7 @@ namespace MadeYellow.WAVES.Editor
 
         bool DrawPlusButton(Rect rect, bool actor)
         {
+            EditorGUIUtility.AddCursorRect(rect, MouseCursor.Link);
             string tip = actor ? "Create Actor Profile" : "Create Surface Type";
             bool hover = rect.Contains(Event.current.mousePosition);
             if (Event.current.type == EventType.Repaint)
@@ -2123,6 +2124,14 @@ namespace MadeYellow.WAVES.Editor
         void ShowAxisMenu(UnityEngine.Object asset)
         {
             var menu = new GenericMenu();
+            if (asset is SurfaceTypeDefinition surface)
+            {
+                menu.AddItem(new GUIContent("Manage"), false, () => SurfaceTypeManagerWindow.Open(surface));
+                menu.AddItem(new GUIContent("Remove"), false, () => DeleteAxisAsset(asset));
+                menu.ShowAsContext();
+                return;
+            }
+
             menu.AddItem(new GUIContent("Rename"), false, () => AxisRenamePrompt.Open(asset));
             menu.AddItem(new GUIContent("Change color"), false, () => AxisColorPrompt.Open(asset));
             menu.AddItem(new GUIContent("Delete"), false, () => DeleteAxisAsset(asset));

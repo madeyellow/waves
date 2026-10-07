@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace MadeYellow.WAVES.AudioVisualEffects
 {
-    /// <summary>Marker lookups remembered by collider id. Terrain samples are not stored.</summary>
+    /// <summary>Collider lookups remembered by id. Terrain samples are not stored.</summary>
     sealed class WAVESSurfaceCache
     {
         /// <summary>Room for collider ids before the map has to grow.</summary>

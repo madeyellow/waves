@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.11] - 2026-10-07
+
+### Added
+
+- Surface Type Manager lists every surface type and edits the one you select. Open it from Window > MadeYellow > WAVES > Surface Type Manager, or choose Manage on a surface type in WAVES Module Browser. The right-click menu for a surface type there is only Manage and Remove. Add Surface Type creates a new asset at the end of the list. Drag a row to reorder it. The detail shows the color, the name, keywords, and the materials and textures that identify the type.
+
+- A keyword matches a material or texture name when that name contains it, ignoring case. A * stands for any text, including none. Auto Search adds the matches and leaves entries that are already listed. It stays off while the type has no keywords. Dropping a material or texture adds that asset. Dropping a folder adds every material or texture in the folder and in the folders inside it, with no keyword filter. Clear empties that list on the surface type and leaves the project assets where they are. A row shows the asset in an open Project window and, when an Inspector is open, selects it there. The cross on the row removes it from the type.
+
+- A collider with no Surface Marker and no terrain map resolves from the renderer's materials, then from the textures on those materials. The renderer on the collider is used first, then one on a child, then one on a parent. That includes a skinned mesh. The first matching material wins, and a listed material wins over a texture. When the same asset is listed on more than one type, the lower Order wins, and the same Order uses the name. A marker still wins over a terrain sample. A terrain map that misses does not fall through to materials, and terrain is still sampled at the point every time.
+
+### Changed
+
+- Outline buttons, including Add Surface Type, use a pointer cursor.
+
 ## [0.1.10] - 2026-10-07
 
 ### Added

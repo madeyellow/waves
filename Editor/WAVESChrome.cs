@@ -98,6 +98,7 @@ namespace MadeYellow.WAVES.Editor
         /// <summary>Square outline control, the same treatment as the matrix plus buttons.</summary>
         public static bool FlatButton(Rect rect, string text)
         {
+            EditorGUIUtility.AddCursorRect(rect, MouseCursor.Link);
             bool hover = rect.Contains(Event.current.mousePosition);
             if (Event.current.type == EventType.Repaint)
             {

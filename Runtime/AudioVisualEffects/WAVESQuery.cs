@@ -26,8 +26,9 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         }
 
         /// <summary>
-        /// Surface at this point on the collider. A remembered marker is reused until its lifetime ends.
-        /// Terrain is sampled every time. False when the collider is null or nothing is mapped to it.
+        /// Surface at this point on the collider. A remembered marker or material match is reused until its lifetime ends.
+        /// Terrain is sampled every time. A marker wins, then a terrain map, then materials and textures on a mesh renderer.
+        /// False when the collider is null or nothing identifies a surface.
         /// </summary>
         public bool TryGetSurface(Collider collider, Vector3 worldPosition, out SurfaceTypeDefinition surface)
         {
@@ -35,7 +36,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         }
 
         /// <summary>
-        /// Surface for this hit. False when the ray missed or nothing is mapped to the collider.
+        /// Surface for this hit. False when the ray missed or nothing identifies a surface.
         /// </summary>
         public bool TryGetSurface(in RaycastHit hit, out SurfaceTypeDefinition surface)
         {
@@ -53,7 +54,7 @@ namespace MadeYellow.WAVES.AudioVisualEffects
             if (_cache != null && _cache.TryGet(id, now, out surface, out bool found))
                 return found;
 
-            bool resolved = SurfaceRegistry.TryResolve(id, worldPosition, out surface, out bool fromTerrain);
+            bool resolved = SurfaceRegistry.TryResolve(collider, worldPosition, out surface, out bool fromTerrain);
             if (!fromTerrain && _cache != null)
                 _cache.Store(id, resolved, surface, now);
 

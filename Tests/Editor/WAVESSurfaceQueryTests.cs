@@ -528,7 +528,717 @@ namespace MadeYellow.WAVES.Tests.Editor
             Object.DestroyImmediate(host);
         }
 
+        [Test]
+        public void TryGetSurface_ReadsAMaterialWhenNothingIsMarked()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            surface.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsTheFirstMatchingMaterial()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
+            Material first = UniqueMaterial(renderer);
+            Material second = new Material(first.shader);
+            renderer.sharedMaterials = new[] { first, second };
+            grass.UseBindingsForTests(new[] { first }, null);
+            stone.UseBindingsForTests(new[] { second }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(grass, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(first);
+                Object.DestroyImmediate(second);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersTheEarlierSurfaceWhenMaterialsOverlap()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            grass.UseBindingsForTests(new[] { material }, null);
+            stone.UseBindingsForTests(new[] { material }, null);
+            grass.SetOrder(5);
+            stone.SetOrder(1);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsATextureWhenTheMaterialIsNotListed()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            var texture = new Texture2D(2, 2);
+            AssignTexture(material, texture);
+            surface.UseBindingsForTests(null, new Texture[] { texture });
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersAListedMaterialOverATexture()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            var texture = new Texture2D(2, 2);
+            AssignTexture(material, texture);
+            grass.UseBindingsForTests(null, new Texture[] { texture });
+            stone.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsAChildMeshWhenTheColliderHasNoRenderer()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var root = new GameObject("ground");
+            var collider = root.AddComponent<BoxCollider>();
+            var child = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            child.transform.SetParent(root.transform, false);
+            Object.DestroyImmediate(child.GetComponent<Collider>());
+            Material material = UniqueMaterial(child.GetComponent<MeshRenderer>());
+            surface.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(child);
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersAMarkerOverAMaterial()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Collider collider = cube.GetComponent<Collider>();
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            grass.UseBindingsForTests(new[] { material }, null);
+            SurfaceRegistry.RegisterMarker(collider.GetEntityId(), cube.GetEntityId(), stone);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_DoesNotUseMaterialsWhenATerrainSampleMisses()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            map.UseMapForTests(new[] { grass }, new byte[] { 0 }, 1, 1);
+            TerrainData data = ground.GetComponent<Terrain>().terrainData;
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            var renderer = ground.AddComponent<MeshRenderer>();
+            Material material = NewMaterial();
+            renderer.sharedMaterial = material;
+            stone.UseBindingsForTests(new[] { material }, null);
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            var query = new WAVESQuery();
+            try
+            {
+                bool inside = query.TryGetSurface(collider, new Vector3(0.25f, 0f, 0.25f), out SurfaceTypeDefinition terrainType);
+                bool outside = query.TryGetSurface(collider, new Vector3(5f, 0f, 0.25f), out SurfaceTypeDefinition none);
+                Assert.IsTrue(inside);
+                Assert.AreSame(grass, terrainType);
+                Assert.IsFalse(outside);
+                Assert.IsNull(none);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_RemembersAMaterialUntilTheLifetimeEnds()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Collider collider = cube.GetComponent<Collider>();
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            surface.UseBindingsForTests(new[] { material }, null);
+            WAVESQuery query = RememberingQuery(1f);
+            try
+            {
+                bool first = query.TryGetSurface(collider, Vector3.zero, 0f, out SurfaceTypeDefinition cached);
+                surface.UseBindingsForTests(null, null);
+                bool during = query.TryGetSurface(collider, Vector3.zero, 1f, out SurfaceTypeDefinition held);
+                bool after = query.TryGetSurface(collider, Vector3.zero, 1.01f, out SurfaceTypeDefinition expired);
+                Assert.IsTrue(first);
+                Assert.AreSame(surface, cached);
+                Assert.IsTrue(during);
+                Assert.AreSame(surface, held);
+                Assert.IsFalse(after);
+                Assert.IsNull(expired);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsASkinnedMeshOnTheCollider()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var body = new GameObject("body");
+            var collider = body.AddComponent<BoxCollider>();
+            var skinned = body.AddComponent<SkinnedMeshRenderer>();
+            Material material = NewMaterial();
+            skinned.sharedMaterial = material;
+            surface.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(body);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsAParentRendererWhenTheColliderHasNone()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var parent = new GameObject("parent");
+            var renderer = parent.AddComponent<MeshRenderer>();
+            Material material = NewMaterial();
+            renderer.sharedMaterial = material;
+            var child = new GameObject("child");
+            child.transform.SetParent(parent.transform, false);
+            var collider = child.AddComponent<BoxCollider>();
+            surface.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(parent);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersTheColliderRendererOverAChild()
+        {
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var root = new GameObject("root");
+            var collider = root.AddComponent<BoxCollider>();
+            var own = root.AddComponent<MeshRenderer>();
+            Material stoneMaterial = NewMaterial();
+            own.sharedMaterial = stoneMaterial;
+            var child = new GameObject("child");
+            child.transform.SetParent(root.transform, false);
+            var childRenderer = child.AddComponent<MeshRenderer>();
+            Material grassMaterial = NewMaterial();
+            childRenderer.sharedMaterial = grassMaterial;
+            stone.UseBindingsForTests(new[] { stoneMaterial }, null);
+            grass.UseBindingsForTests(new[] { grassMaterial }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(stoneMaterial);
+                Object.DestroyImmediate(grassMaterial);
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(stone);
+                Object.DestroyImmediate(grass);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersAChildRendererOverAParent()
+        {
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var parent = new GameObject("parent");
+            var parentRenderer = parent.AddComponent<MeshRenderer>();
+            Material stoneMaterial = NewMaterial();
+            parentRenderer.sharedMaterial = stoneMaterial;
+            var middle = new GameObject("middle");
+            middle.transform.SetParent(parent.transform, false);
+            var collider = middle.AddComponent<BoxCollider>();
+            var child = new GameObject("child");
+            child.transform.SetParent(middle.transform, false);
+            var childRenderer = child.AddComponent<MeshRenderer>();
+            Material grassMaterial = NewMaterial();
+            childRenderer.sharedMaterial = grassMaterial;
+            stone.UseBindingsForTests(new[] { stoneMaterial }, null);
+            grass.UseBindingsForTests(new[] { grassMaterial }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(grass, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(stoneMaterial);
+                Object.DestroyImmediate(grassMaterial);
+                Object.DestroyImmediate(parent);
+                Object.DestroyImmediate(stone);
+                Object.DestroyImmediate(grass);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_SkipsNullMaterialsAndStillReadsTheNextOne()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
+            Material material = UniqueMaterial(renderer);
+            renderer.sharedMaterials = new Material[] { null, material };
+            surface.UseBindingsForTests(new Material[] { null, material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ChecksEveryMaterialBeforeAnyTexture()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
+            Material first = UniqueMaterial(renderer);
+            Material second = new Material(first.shader);
+            var texture = new Texture2D(2, 2);
+            AssignTexture(first, texture);
+            renderer.sharedMaterials = new[] { first, second };
+            grass.UseBindingsForTests(null, new Texture[] { texture });
+            stone.UseBindingsForTests(new[] { second }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(first);
+                Object.DestroyImmediate(second);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsATextureOnALaterMaterial()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
+            Material bare = UniqueMaterial(renderer);
+            Material textured = new Material(bare.shader);
+            var texture = new Texture2D(2, 2);
+            AssignTexture(textured, texture);
+            renderer.sharedMaterials = new[] { bare, textured };
+            surface.UseBindingsForTests(null, new Texture[] { texture });
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(bare);
+                Object.DestroyImmediate(textured);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersTheEarlierSurfaceWhenTexturesOverlap()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            var texture = new Texture2D(2, 2);
+            AssignTexture(material, texture);
+            grass.UseBindingsForTests(null, new Texture[] { texture });
+            stone.UseBindingsForTests(null, new Texture[] { texture });
+            grass.SetOrder(4);
+            stone.SetOrder(0);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_UsesTheNameWhenTheOrderMatches()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            grass.name = "Grass";
+            stone.name = "Stone";
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            grass.UseBindingsForTests(new[] { material }, null);
+            stone.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(grass, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_DropsASurfaceWhenItsDefinitionIsDestroyed()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            surface.UseBindingsForTests(new[] { material }, null);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+                Object.DestroyImmediate(surface);
+                bool after = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition none);
+                Assert.IsFalse(after);
+                Assert.IsNull(none);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                if (surface != null)
+                    Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_ReadsAMaterialFromARaycastHit()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.position = new Vector3(9100f, 0f, 9100f);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            surface.UseBindingsForTests(new[] { material }, null);
+            Physics.SyncTransforms();
+            var query = new WAVESQuery();
+            try
+            {
+                bool hit = Physics.Raycast(cube.transform.position + Vector3.up * 3f, Vector3.down, out RaycastHit ray, 6f);
+                Assert.IsTrue(hit);
+                bool found = query.TryGetSurface(ray, out SurfaceTypeDefinition resolved);
+                bool missed = query.TryGetSurface(DefaultHit, out SurfaceTypeDefinition none);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+                Assert.IsFalse(missed);
+                Assert.IsNull(none);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_PrefersAMarkerOverATerrainSample()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            map.UseMapForTests(new[] { grass }, new byte[] { 0 }, 1, 1);
+            TerrainData data = ground.GetComponent<Terrain>().terrainData;
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            SurfaceRegistry.RegisterMarker(collider.GetEntityId(), ground.GetEntityId(), stone);
+            var query = new WAVESQuery();
+            try
+            {
+                bool found = query.TryGetSurface(collider, new Vector3(0.25f, 0f, 0.25f), out SurfaceTypeDefinition resolved);
+                Assert.IsTrue(found);
+                Assert.AreSame(stone, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_SamplesTerrainAgainInsideTheCacheLifetime()
+        {
+            SurfaceTypeDefinition grass = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            SurfaceTypeDefinition stone = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var ground = new GameObject("terrain");
+            var map = ground.AddComponent<TerrainSurfaceMap>();
+            map.UseMapForTests(new[] { grass }, new byte[] { 0 }, 1, 1);
+            TerrainData data = ground.GetComponent<Terrain>().terrainData;
+            Collider collider = ground.GetComponent<TerrainCollider>();
+            SurfaceRegistry.RegisterTerrain(collider.GetEntityId(), map);
+            WAVESQuery query = RememberingQuery(60f);
+            try
+            {
+                bool first = query.TryGetSurface(collider, new Vector3(0.25f, 0f, 0.25f), 0f, out SurfaceTypeDefinition terrainType);
+                map.UseMapForTests(new[] { stone }, new byte[] { 0 }, 1, 1);
+                bool second = query.TryGetSurface(collider, new Vector3(0.25f, 0f, 0.25f), 1f, out SurfaceTypeDefinition updated);
+                Assert.IsTrue(first);
+                Assert.AreSame(grass, terrainType);
+                Assert.IsTrue(second);
+                Assert.AreSame(stone, updated);
+            }
+            finally
+            {
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(data);
+                Object.DestroyImmediate(grass);
+                Object.DestroyImmediate(stone);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_RemembersAMissUntilTheLifetimeEnds()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Collider collider = cube.GetComponent<Collider>();
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            WAVESQuery query = RememberingQuery(1f);
+            try
+            {
+                bool missed = query.TryGetSurface(collider, Vector3.zero, 0f, out SurfaceTypeDefinition none);
+                surface.UseBindingsForTests(new[] { material }, null);
+                bool during = query.TryGetSurface(collider, Vector3.zero, 1f, out SurfaceTypeDefinition held);
+                bool after = query.TryGetSurface(collider, Vector3.zero, 1.01f, out SurfaceTypeDefinition resolved);
+                Assert.IsFalse(missed);
+                Assert.IsNull(none);
+                Assert.IsFalse(during);
+                Assert.IsNull(held);
+                Assert.IsTrue(after);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
+        [Test]
+        public void TryGetSurface_SeesANewTextureBindingOnTheNextLookup()
+        {
+            SurfaceTypeDefinition surface = ScriptableObject.CreateInstance<SurfaceTypeDefinition>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Material material = UniqueMaterial(cube.GetComponent<MeshRenderer>());
+            var texture = new Texture2D(2, 2);
+            AssignTexture(material, texture);
+            var query = new WAVESQuery();
+            try
+            {
+                bool missed = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition none);
+                surface.UseBindingsForTests(null, new Texture[] { texture });
+                bool found = query.TryGetSurface(cube.GetComponent<Collider>(), Vector3.zero, out SurfaceTypeDefinition resolved);
+                Assert.IsFalse(missed);
+                Assert.IsNull(none);
+                Assert.IsTrue(found);
+                Assert.AreSame(surface, resolved);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(cube);
+                Object.DestroyImmediate(surface);
+            }
+        }
+
         static readonly RaycastHit DefaultHit = default;
+
+        static Material UniqueMaterial(MeshRenderer renderer)
+        {
+            var material = new Material(renderer.sharedMaterial.shader);
+            renderer.sharedMaterial = material;
+            return material;
+        }
+
+        static Material NewMaterial()
+        {
+            var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Shader shader = probe.GetComponent<MeshRenderer>().sharedMaterial.shader;
+            Object.DestroyImmediate(probe);
+            return new Material(shader);
+        }
+
+        static void AssignTexture(Material material, Texture texture)
+        {
+            if (material.HasProperty("_BaseMap"))
+                material.SetTexture("_BaseMap", texture);
+            else if (material.HasProperty("_MainTex"))
+                material.SetTexture("_MainTex", texture);
+            else
+                material.mainTexture = texture;
+        }
 
         static WAVESQuery RememberingQuery(float lifetime)
         {
