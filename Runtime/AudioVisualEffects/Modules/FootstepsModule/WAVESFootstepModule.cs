@@ -679,14 +679,14 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
         {
             [SerializeField] List<StepSlot> _steps = new List<StepSlot>();
             [SerializeField] AudioMixerGroup _mixerGroup;
-            [SerializeField] float _volume = 1f;
-            [SerializeField] float _spatialBlend = 1f;
-            [SerializeField] float _reverbZoneMix = 1f;
-            [SerializeField] float _audibleDistance = 15f;
-            [SerializeField] float _minDistance = 1f;
-            [SerializeField] AudioRolloffMode _rolloff = AudioRolloffMode.Logarithmic;
+            [SerializeField] float _volume = WAVESEffectDefaults.Volume;
+            [SerializeField] float _spatialBlend = WAVESEffectDefaults.SpatialBlend;
+            [SerializeField] float _reverbZoneMix = WAVESEffectDefaults.ReverbZoneMix;
+            [SerializeField] float _audibleDistance = WAVESEffectDefaults.AudibleDistance;
+            [SerializeField] float _minDistance = WAVESEffectDefaults.MinDistance;
+            [SerializeField] AudioRolloffMode _rolloff = WAVESEffectDefaults.Rolloff;
             [SerializeField] float _dopplerLevel;
-            [SerializeField] float _visibleDistance = 20f;
+            [SerializeField] float _visibleDistance = WAVESEffectDefaults.VisibleDistance;
 
             public int StepCount => _steps != null ? _steps.Count : 0;
             public AudioMixerGroup MixerGroup => _mixerGroup;
@@ -876,19 +876,19 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
         {
             [SerializeField] FootstepType _step;
             [SerializeField] AudioResource _audio;
-            [SerializeField] float _audibleDistance = 15f;
-            [SerializeField] float _minDistance = 1f;
-            [SerializeField] AudioRolloffMode _rolloff = AudioRolloffMode.Logarithmic;
+            [SerializeField] float _audibleDistance = WAVESEffectDefaults.AudibleDistance;
+            [SerializeField] float _minDistance = WAVESEffectDefaults.MinDistance;
+            [SerializeField] AudioRolloffMode _rolloff = WAVESEffectDefaults.Rolloff;
             [SerializeField] float _dopplerLevel;
             [SerializeField] bool _overrideSettings;
             [SerializeField] bool _overrideVisual;
             [SerializeField] AudioMixerGroup _mixerGroup;
-            [SerializeField] float _volume = 1f;
-            [SerializeField] float _spatialBlend = 1f;
-            [SerializeField] float _reverbZoneMix = 1f;
+            [SerializeField] float _volume = WAVESEffectDefaults.Volume;
+            [SerializeField] float _spatialBlend = WAVESEffectDefaults.SpatialBlend;
+            [SerializeField] float _reverbZoneMix = WAVESEffectDefaults.ReverbZoneMix;
             [SerializeField] ParticleSystem _particles;
             [SerializeField] VisualEffectAsset _graph;
-            [SerializeField] float _visibleDistance = 20f;
+            [SerializeField] float _visibleDistance = WAVESEffectDefaults.VisibleDistance;
 
             public FootstepType Step => _step;
             public AudioResource Audio => _audio;
@@ -971,13 +971,13 @@ namespace MadeYellow.WAVES.AudioVisualEffects.Modules.FootstepsModule
             [SerializeField] ActorProfile _actor;
             [SerializeField] FootstepType _step;
             [SerializeField] AudioResource _audio;
-            [SerializeField] float _audibleDistance = 15f;
-            [SerializeField] float _minDistance = 1f;
-            [SerializeField] AudioRolloffMode _rolloff = AudioRolloffMode.Logarithmic;
+            [SerializeField] float _audibleDistance = WAVESEffectDefaults.AudibleDistance;
+            [SerializeField] float _minDistance = WAVESEffectDefaults.MinDistance;
+            [SerializeField] AudioRolloffMode _rolloff = WAVESEffectDefaults.Rolloff;
             [SerializeField] float _dopplerLevel;
             [SerializeField] ParticleSystem _particles;
             [SerializeField] VisualEffectAsset _graph;
-            [SerializeField] float _visibleDistance = 20f;
+            [SerializeField] float _visibleDistance = WAVESEffectDefaults.VisibleDistance;
 
             public SurfaceTypeDefinition Surface => _surface;
             public ActorProfile Actor => _actor;
