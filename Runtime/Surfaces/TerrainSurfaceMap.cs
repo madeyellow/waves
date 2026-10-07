@@ -49,6 +49,20 @@ namespace MadeYellow.WAVES.Surfaces
             _height = 0;
         }
 
+        /// <summary>Installs a grid for tests. Cells are row-major, and each value is a layer index into <paramref name="surfaces"/>.</summary>
+        internal void UseMapForTests(SurfaceTypeDefinition[] surfaces, byte[] dominant, int width, int height)
+        {
+            _terrain = GetComponent<Terrain>();
+            if (_terrain.terrainData == null)
+                _terrain.terrainData = new TerrainData();
+
+            _terrain.terrainData.size = new Vector3(Mathf.Max(width, 1), 1f, Mathf.Max(height, 1));
+            _width = width;
+            _height = height;
+            _dominant = dominant;
+            _layerToSurface = surfaces;
+        }
+
         /// <summary>Surface at a world point. False outside the map or when that layer is unbound.</summary>
         public bool TrySample(Vector3 worldPosition, out SurfaceTypeDefinition surface)
         {

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10] - 2026-10-07
+
+### Added
+
+- WAVES remembers surface lookups for colliders that are not terrain. The result is kept per collider until Surface Cache Lifetime ends, including a collider with no surface. Terrain is sampled at the point every time, and a miss on one part of a terrain is not reused for the rest of it. When a marker and a terrain share a collider, the marker is remembered and the terrain is used again after that memory ends.
+
+- The WAVES inspector groups this under Caching. Use Caching turns it on. Surface Cache Lifetime is hidden while that is off, and it cannot be shorter than 0.01 unscaled seconds. A new component starts with caching on and a lifetime of 60 seconds. The Modules label uses the same header style as Caching.
+
 ## [0.1.9] - 2026-10-06
 
 ### Added

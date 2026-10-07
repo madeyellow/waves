@@ -53,11 +53,35 @@ namespace MadeYellow.WAVES.Editor
 
             DrawBanner();
             serializedObject.Update();
-            DrawPropertiesExcluding(serializedObject, "m_Script", "_modules");
+            DrawPropertiesExcluding(serializedObject, "m_Script", "_modules", "_cacheSurfaces", "_surfaceCacheLifetime");
+            DrawCache();
             serializedObject.ApplyModifiedProperties();
             var waves = (AudioVisualEffects.WAVES)target;
             DrawRack(waves);
             DrawLinks(waves);
+        }
+
+        static readonly GUIContent UseCachingLabel = new GUIContent(
+            "Use Caching",
+            "Caching remembers queries that determine surface types and returns a previously computed result. This greatly improves performance. Leave caching enabled, and keep the cache lifetime around 60 seconds or more.");
+
+        void DrawCache()
+        {
+            SerializedProperty enabled = serializedObject.FindProperty("_cacheSurfaces");
+            EditorGUILayout.PropertyField(enabled, UseCachingLabel);
+            if (!enabled.boolValue)
+                return;
+
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("_surfaceCacheLifetime"));
+        }
+
+        static void DrawHeader(string title)
+        {
+            float line = EditorGUIUtility.singleLineHeight;
+            Rect position = EditorGUILayout.GetControlRect(false, line * 1.5f);
+            position.yMin += line * 0.5f;
+            position = EditorGUI.IndentedRect(position);
+            GUI.Label(position, title, EditorStyles.boldLabel);
         }
 
         static void DrawBanner()
@@ -156,8 +180,7 @@ namespace MadeYellow.WAVES.Editor
         {
             int indent = EditorGUI.indentLevel;
             EditorGUI.indentLevel = 0;
-            EditorGUILayout.Space(4f);
-            EditorGUILayout.LabelField("Modules");
+            DrawHeader("Modules");
 
             int count = waves.ModuleCount;
             for (int i = 0; i < count; i++)

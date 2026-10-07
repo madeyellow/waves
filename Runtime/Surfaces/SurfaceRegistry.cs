@@ -74,15 +74,27 @@ namespace MadeYellow.WAVES.Surfaces
             if (collider == null)
                 return false;
 
-            EntityId id = collider.GetEntityId();
-            if (Markers.TryGetValue(id, out MarkerBinding marker) && marker.Type != null)
+            return TryResolve(collider.GetEntityId(), point, out surface, out _);
+        }
+
+        /// <summary>
+        /// Marker first, then a terrain sample. <paramref name="fromTerrain"/> is set when this collider id has a terrain map, including a sample that missed.
+        /// </summary>
+        internal static bool TryResolve(EntityId colliderId, Vector3 point, out SurfaceTypeDefinition surface, out bool fromTerrain)
+        {
+            surface = null;
+            fromTerrain = false;
+            if (Markers.TryGetValue(colliderId, out MarkerBinding marker) && marker.Type != null)
             {
                 surface = marker.Type;
                 return true;
             }
 
-            if (Terrains.TryGetValue(id, out TerrainSurfaceMap terrain)
-                && terrain.TrySample(point, out surface))
+            if (!Terrains.TryGetValue(colliderId, out TerrainSurfaceMap terrain))
+                return false;
+
+            fromTerrain = true;
+            if (terrain.TrySample(point, out surface))
                 return true;
 
             surface = null;

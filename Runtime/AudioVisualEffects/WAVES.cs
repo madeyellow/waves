@@ -22,10 +22,40 @@ namespace MadeYellow.WAVES.AudioVisualEffects
         [Tooltip("Modules bound while this component is enabled. A second asset of the same type replaces the first.")]
         List<WAVESModuleBase> _modules = new List<WAVESModuleBase>();
 
+        const float MinimumCacheLifetime = 0.01f;
+
+        /// <summary>When on, marker lookups are remembered by collider id. Terrain is always sampled.</summary>
+        [SerializeField]
+        [Header("Caching")]
+        [InspectorName("Use Caching")]
+        [Tooltip("Caching remembers queries that determine surface types and returns a previously computed result. This greatly improves performance. Leave caching enabled, and keep the cache lifetime around 60 seconds or more.")]
+        bool _cacheSurfaces = true;
+
+        /// <summary>Unscaled seconds a remembered collider surface stays valid.</summary>
+        [SerializeField]
+        [Min(MinimumCacheLifetime)]
+        [Tooltip("Unscaled seconds a remembered collider surface stays valid. Around 60 seconds or more is recommended.")]
+        float _surfaceCacheLifetime = 60f;
+
         readonly List<WAVESModuleBase> _bound = new List<WAVESModuleBase>();
+        WAVESSurfaceCache _surfaceCache;
 
         /// <summary>Ground queries. Created when this component awakens.</summary>
         public WAVESQuery Query { get; private set; }
+
+        /// <summary>When on, marker lookups are remembered by collider id. Terrain is always sampled.</summary>
+        public bool CacheSurfaces
+        {
+            get => _cacheSurfaces;
+            set => _cacheSurfaces = value;
+        }
+
+        /// <summary>Unscaled seconds a remembered collider surface stays valid.</summary>
+        public float SurfaceCacheLifetime
+        {
+            get => _surfaceCacheLifetime;
+            set => _surfaceCacheLifetime = value < MinimumCacheLifetime ? MinimumCacheLifetime : value;
+        }
 
         /// <summary>Bus the modules subscribe to.</summary>
         public ScriptableEventBase Bus => _bus;
@@ -98,7 +128,8 @@ namespace MadeYellow.WAVES.AudioVisualEffects
 
         void Awake()
         {
-            Query = new WAVESQuery();
+            _surfaceCache = new WAVESSurfaceCache();
+            Query = new WAVESQuery(this, _surfaceCache);
             Audio = GetComponent<IWAVESAudioFX>();
             Visual = GetComponent<IWAVESVisualFX>();
         }
@@ -115,6 +146,9 @@ namespace MadeYellow.WAVES.AudioVisualEffects
 
         void OnValidate()
         {
+            if (_surfaceCacheLifetime < MinimumCacheLifetime)
+                _surfaceCacheLifetime = MinimumCacheLifetime;
+
             DeduplicateModules();
             RebindIfPlaying();
         }
